@@ -46,7 +46,30 @@ bool TcpChatClient::connectToServer() {
     return true;
 }
 
-void TcpChatClient::run() {
-    std::cout << "Running client (placeholder)\n";
-  
+
+    void TcpChatClient::run() {
+        std::string line;
+        char buffer[1024];
+
+        while (std::getline(std::cin, line)) {
+            line += "\r\n";
+
+            // Odeslání
+            if (send(sockfd, line.c_str(), line.size(), 0) == -1) {
+                std::perror("ERROR: send failed");
+                break;
+            }
+
+            // Přijetí odpovědi
+            ssize_t received = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
+            if (received <= 0) {
+                std::cerr << "Connection closed or error occurred.\n";
+                break;
+            }
+
+            buffer[received] = '\0';  // Ukončit buffer
+            std::cout << "Server: " << buffer;
+        }
+    }
+
 }
