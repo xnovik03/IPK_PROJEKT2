@@ -8,6 +8,7 @@ public:
 
     bool connectToServer();
     void run();
+    void printHelp();
 
 private:
     std::string server;

@@ -78,7 +78,10 @@ void TcpChatClient::run() {
     // Smyčka pro čtení příkazů
     while (std::getline(std::cin, line)) {
         std::string messageToSend;
-
+         if (line.rfind("/help", 0) == 0) {
+            printHelp(); 
+            continue;
+        }
         if (line.rfind("/auth", 0) == 0) {
             auto cmd = InputHandler::parseAuthCommand(line);
             if (cmd) {
@@ -119,4 +122,11 @@ void TcpChatClient::run() {
 
  
     receiverThread.join();  
+}
+
+void TcpChatClient::printHelp() {
+    std::cout << "/auth {Username} {Secret} {DisplayName} - Authenticate user\n";
+    std::cout << "/join {ChannelID} - Join a channel\n";
+    std::cout << "/rename {DisplayName} - Change your display name\n";
+    std::cout << "/help - Show this help message\n";
 }
