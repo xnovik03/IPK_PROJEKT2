@@ -1,4 +1,5 @@
 #include "TcpChatClient.h"
+#include "InputHandler.h"
 #include <iostream>
 #include <string>
 #include <cstring>       // memset
@@ -47,29 +48,40 @@ bool TcpChatClient::connectToServer() {
 }
 
 
-    void TcpChatClient::run() {
-        std::string line;
-        char buffer[1024];
+void TcpChatClient::run() {
+    std::string line;
+    char buffer[1024];
 
-        while (std::getline(std::cin, line)) {
-            line += "\r\n";
+    while (std::getline(std::cin, line)) {
+        if (line.rfind("/auth", 0) == 0) {
+            auto cmd = InputHandler::parseAuthCommand(line);
+            if (cmd) {
+                std::string authMessage = "AUTH " + cmd->username + " AS " + cmd->displayName + " USING " + cmd->secret + "\r\n";
+                std::cout << "Sending: " << authMessage << std::endl;  // Debugging
+                if (send(sockfd, authMessage.c_str(), authMessage.size(), 0) == -1) {
+                    std::perror("ERROR: send failed");
+                    break;
+                }
 
-            // Odeslání
-            if (send(sockfd, line.c_str(), line.size(), 0) == -1) {
-                std::perror("ERROR: send failed");
-                break;
+            } else {
+                std::cerr << "Invalid /auth command format.\n";
+                continue;
             }
-
-            // Přijetí odpovědi
-            ssize_t received = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
-            if (received <= 0) {
-                std::cerr << "Connection closed or error occurred.\n";
-                break;
-            }
-
-            buffer[received] = '\0';  // Ukončit buffer
-            std::cout << "Server: " << buffer;
+        } else {
+            std::cerr << "Unknown command or message format.\n";
+            continue;
         }
-    }
 
+        // Čekáme na odpověď od serveru
+        ssize_t received = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
+        if (received <= 0) {
+            std::cerr << "Connection closed or error occurred.\n";
+            break;
+        }
+
+        buffer[received] = '\0';
+        std::cout << "Server: " << buffer;
+    }
 }
+
+
