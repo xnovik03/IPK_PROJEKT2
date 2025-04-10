@@ -20,14 +20,14 @@ std::optional<std::string> InputHandler::parseJoinCommand(const std::string& lin
     iss >> cmd; // Přečte "/join"
     
     if (cmd == "/join") {
-        iss >> channel;  // Načte název kanálu
+        iss >> channel;  
         
         if (!channel.empty()) {
-            return channel;  // Pokud je název kanálu validní, vrátíme ho jako std::optional
+            return channel; 
         }
     }
     
-    return std::nullopt;  // Pokud je formát špatný, vrátíme std::nullopt
+    return std::nullopt; 
 }
 
 

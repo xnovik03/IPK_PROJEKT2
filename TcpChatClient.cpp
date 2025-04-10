@@ -8,7 +8,7 @@
 #include <netdb.h>       // getaddrinfo, addrinfo, freeaddrinfo
 #include <unistd.h>      // close()
 #include <cerrno>        // perror
-
+#include <thread>
 TcpChatClient::TcpChatClient(const std::string& host, int port)
     : server(host), port(port), sockfd(-1) {}
 
@@ -47,55 +47,18 @@ bool TcpChatClient::connectToServer() {
     return true;
 }
 
-void TcpChatClient::run() {
-    std::string line;
+void TcpChatClient::receiveServerResponse() {
     char buffer[1024];
-
-    // Hlavní smyčka pro čtení příkazů od uživatele
-    while (std::getline(std::cin, line)) {
-        if (line.rfind("/auth", 0) == 0) {
-            auto cmd = InputHandler::parseAuthCommand(line);
-            if (cmd) {
-                std::string authMessage = "AUTH " + cmd->username + " AS " + cmd->displayName + " USING " + cmd->secret + "\r\n";
-                std::cout << "Sending: " << authMessage << std::endl;
-                if (send(sockfd, authMessage.c_str(), authMessage.size(), 0) == -1) {
-                    std::perror("ERROR: send failed");
-                    break;
-                }
-            } else {
-                std::cerr << "Invalid /auth command format.\n";
-                continue;
-            }
-        } else if (line.rfind("/join", 0) == 0) {
-            auto cmd = InputHandler::parseJoinCommand(line);
-            if (cmd) {
-                std::string joinMessage = "JOIN " + cmd.value() + "\r\n";
-                std::cout << "Sending: " << joinMessage << std::endl;
-                if (send(sockfd, joinMessage.c_str(), joinMessage.size(), 0) == -1) {
-                    std::perror("ERROR: send failed");
-                    break;
-                }
-            } else {
-                std::cerr << "Invalid /join command format.\n";
-                continue;
-            }
-        } else {
-            std::cerr << "Unknown command or message format.\n";
-            continue;
-        }
-    }
-
-    // Po odeslání všech příkazů počkáme na odpovědi
     while (true) {
         ssize_t received = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
         if (received <= 0) {
             std::cerr << "Connection closed or error occurred.\n";
             break;
         }
-
         buffer[received] = '\0';
         std::cout << "Server response: " << buffer << std::endl;
 
+        // Zpracování odpovědi od serveru
         if (std::string(buffer).find("REPLY OK") != std::string::npos) {
             std::cout << "Command successfully processed." << std::endl;
         } else if (std::string(buffer).find("REPLY NOK") != std::string::npos) {
@@ -106,4 +69,54 @@ void TcpChatClient::run() {
     }
 }
 
+void TcpChatClient::run() {
+    std::string line;
 
+    // Spustíme vlákno pro příjem zpráv
+    std::thread receiverThread(&TcpChatClient::receiveServerResponse, this);
+
+    // Smyčka pro čtení příkazů
+    while (std::getline(std::cin, line)) {
+        std::string messageToSend;
+
+        if (line.rfind("/auth", 0) == 0) {
+            auto cmd = InputHandler::parseAuthCommand(line);
+            if (cmd) {
+                messageToSend = "AUTH " + cmd->username + " AS " + cmd->displayName + " USING " + cmd->secret + "\r\n";
+            } else {
+                std::cerr << "Invalid /auth command format.\n";
+                continue;
+            }
+        } else if (line.rfind("/join", 0) == 0) {
+            auto cmd = InputHandler::parseJoinCommand(line);
+            if (cmd) {
+                messageToSend = "JOIN " + cmd.value() + "\r\n";
+            } else {
+                std::cerr << "Invalid /join command format.\n";
+                continue;
+            }
+        } else if (line.rfind("/rename", 0) == 0) {
+            std::string newDisplayName = line.substr(8);  // Oříznutí "/rename "
+            if (newDisplayName.empty()) {
+                std::cerr << "Invalid /rename command format: Display name cannot be empty.\n";
+                continue;
+            }
+            displayName = newDisplayName;  // Změníme displayName
+            std::cout << "Display name changed to: " << displayName << std::endl;
+            continue;
+        } else {
+            std::cerr << "Unknown command or message format.\n";
+            continue;
+        }
+
+        // Odeslání zprávy
+        std::cout << "Sending: " << messageToSend << std::endl;
+        if (send(sockfd, messageToSend.c_str(), messageToSend.size(), 0) == -1) {
+            std::perror("ERROR: send failed");
+            break;
+        }
+    }
+
+ 
+    receiverThread.join();  
+}

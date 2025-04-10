@@ -11,6 +11,9 @@ public:
 
 private:
     std::string server;
+    std::string displayName; 
     int port;
     int sockfd;
+
+    void receiveServerResponse(); 
 };
