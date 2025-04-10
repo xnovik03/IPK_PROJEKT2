@@ -1,11 +1,19 @@
 #include "TcpChatClient.h"
 #include <iostream>
-#include <netdb.h>
-#include <unistd.h>
-#include <cstring>
+#include <string>
+#include <cstring>       // memset
+#include <sys/types.h>
+#include <sys/socket.h>  // socket, connect, AF_INET, SOCK_STREAM
+#include <netdb.h>       // getaddrinfo, addrinfo, freeaddrinfo
+#include <unistd.h>      // close()
+#include <cerrno>        // perror
 
-TcpChatClient::TcpChatClient(const std::string& server, int port)
-    : server(server), port(port), sockfd(-1) {}
+TcpChatClient::TcpChatClient(const std::string& host, int port)
+    : server(host), port(port), sockfd(-1) {}
+
+TcpChatClient::~TcpChatClient() {
+    if (sockfd != -1) close(sockfd);
+}
 
 bool TcpChatClient::connectToServer() {
     struct addrinfo hints{}, *res;
@@ -20,19 +28,25 @@ bool TcpChatClient::connectToServer() {
 
     sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if (sockfd == -1) {
-        perror("ERROR: socket creation failed");
+        std::perror("ERROR: socket creation failed");
         freeaddrinfo(res);
         return false;
     }
 
     if (connect(sockfd, res->ai_addr, res->ai_addrlen) == -1) {
-        perror("ERROR: connect failed");
+        std::perror("ERROR: connect failed");
         close(sockfd);
+        sockfd = -1;
         freeaddrinfo(res);
         return false;
     }
 
-    std::cout << "Connected to " << server << ":" << port << " over TCP.\n";
     freeaddrinfo(res);
+    std::cout << "TCP client connected successfully.\n";
     return true;
+}
+
+void TcpChatClient::run() {
+    std::cout << "Running client (placeholder)\n";
+  
 }

@@ -82,6 +82,11 @@ int main(int argc, char* argv[]) {
         close(sockfd);
         freeaddrinfo(res);
     }
-
+  
+    if (transport == "tcp") {
+        TcpChatClient client(server, port);
+        if (!client.connectToServer()) return 1;
+        client.run();
+    }
     return 0;
 }
