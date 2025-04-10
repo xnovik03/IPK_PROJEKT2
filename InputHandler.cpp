@@ -1,3 +1,4 @@
+
 #include "InputHandler.h"
 #include <sstream>
 
@@ -28,4 +29,5 @@ std::optional<std::string> InputHandler::parseJoinCommand(const std::string& lin
     
     return std::nullopt;  // Pokud je formát špatný, vrátíme std::nullopt
 }
+
 

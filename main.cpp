@@ -6,7 +6,9 @@
 #include <netdb.h>      // getaddrinfo, addrinfo, freeaddrinfo
 #include <unistd.h>     // close()
 #include <cerrno>    
-#include "TcpChatClient.h"
+#include "TcpChatClient.h"  
+#define DEBUG_PRINT  
+#include "Logger.h"
 void printHelp() {
     std::cout << "Usage: ./ipk25chat-client -t <tcp|udp> -s <server> [-p port] [-d timeout_ms] [-r retries] [-h]\n";
     std::cout << "  -t      Transport protocol: tcp or udp (REQUIRED)\n";
@@ -18,6 +20,7 @@ void printHelp() {
 }
 
 int main(int argc, char* argv[]) {
+    printf_debug("Starting the program");
     std::string transport;
     std::string server;
     
@@ -49,44 +52,10 @@ int main(int argc, char* argv[]) {
     }
 
     if (transport == "tcp") {
-        //Získání adresy serveru
-        struct addrinfo hints{}, *res;
-        hints.ai_family = AF_INET;       // IPv4
-        hints.ai_socktype = SOCK_STREAM; // TCP
-
-        int status = getaddrinfo(server.c_str(), std::to_string(port).c_str(), &hints, &res);
-        if (status != 0) {
-            std::cerr << "ERROR: getaddrinfo failed: " << gai_strerror(status) << "\n";
-            return 1;
-        }
-
-        //Vytvoření socketu
-        int sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-        if (sockfd == -1) {
-            std::perror("ERROR: socket creation failed");
-            freeaddrinfo(res);
-            return 1;
-        }
-
-        // Připojení na server
-        if (connect(sockfd, res->ai_addr, res->ai_addrlen) == -1) {
-            std::perror("ERROR: connect failed");
-            close(sockfd);
-            freeaddrinfo(res);
-            return 1;
-        }
-
-        std::cout << " Connected to " << server << ":" << port << " over TCP.\n";
-
-        //Zavřeme spojení
-        close(sockfd);
-        freeaddrinfo(res);
-    }
-  
-    if (transport == "tcp") {
         TcpChatClient client(server, port);
         if (!client.connectToServer()) return 1;
         client.run();
     }
+    printf_debug("Program finished");
     return 0;
 }
