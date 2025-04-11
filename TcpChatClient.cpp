@@ -130,3 +130,4 @@ void TcpChatClient::printHelp() {
     std::cout << "/rename {DisplayName} - Change your display name\n";
     std::cout << "/help - Show this help message\n";
 }
+
