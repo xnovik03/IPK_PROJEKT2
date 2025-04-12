@@ -1,14 +1,8 @@
 #include <iostream>
 #include <string>
 #include <cstring>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <unistd.h>
-#include <cerrno>
-#include <thread> 
-#include "TcpChatClient.h"
-#include "Server.h"
+#include "TcpChatClient.h"  // Pokud máte tento soubor pro klienta
 
 void printHelp() {
     std::cout << "Usage: ./ipk25chat-client -t <tcp|udp> -s <server> [-p port] [-d timeout_ms] [-r retries] [-h]\n";
@@ -47,10 +41,6 @@ int main(int argc, char* argv[]) {
         printHelp();
         return 1;
     }
-
-    // Spuštění serveru v samostatném vlákně
-    std::thread serverThread(startServer, port);
-    serverThread.detach();  // Odsynchronizování vlákna
 
     if (transport == "tcp") {
         TcpChatClient client(server, port);
