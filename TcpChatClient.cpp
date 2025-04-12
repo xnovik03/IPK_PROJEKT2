@@ -1,3 +1,4 @@
+
 #include "TcpChatClient.h"
 #include "InputHandler.h"
 #include <iostream>
@@ -75,17 +76,21 @@ void TcpChatClient::run() {
     // Spustíme vlákno pro příjem zpráv
     std::thread receiverThread(&TcpChatClient::receiveServerResponse, this);
 
-    // Smyčka pro čtení příkazů
+    // Smyčka pro čtení příkazů a zpráv
     while (std::getline(std::cin, line)) {
         std::string messageToSend;
-         if (line.rfind("/help", 0) == 0) {
-            printHelp(); 
+
+        // Zpracování příkazů
+        if (line.rfind("/help", 0) == 0) {
+            printHelp();
             continue;
         }
         if (line.rfind("/auth", 0) == 0) {
             auto cmd = InputHandler::parseAuthCommand(line);
             if (cmd) {
                 messageToSend = "AUTH " + cmd->username + " AS " + cmd->displayName + " USING " + cmd->secret + "\r\n";
+                // Po úspěšném přihlášení nastavíme displayName
+                displayName = cmd->displayName;
             } else {
                 std::cerr << "Invalid /auth command format.\n";
                 continue;
@@ -93,7 +98,7 @@ void TcpChatClient::run() {
         } else if (line.rfind("/join", 0) == 0) {
             auto cmd = InputHandler::parseJoinCommand(line);
             if (cmd) {
-                messageToSend = "JOIN " + cmd.value() + "\r\n";
+                messageToSend = "JOIN " + cmd.value() + " AS " + displayName + "\r\n";
             } else {
                 std::cerr << "Invalid /join command format.\n";
                 continue;
@@ -108,11 +113,11 @@ void TcpChatClient::run() {
             std::cout << "Display name changed to: " << displayName << std::endl;
             continue;
         } else {
-            std::cerr << "Unknown command or message format.\n";
-            continue;
+            // Pokud to není příkaz, považujeme to za zprávu, kterou pošleme na server
+            messageToSend = "MSG FROM " + displayName + " IS " + line + "\r\n";
         }
 
-        // Odeslání zprávy
+        // Odeslání zprávy nebo příkazu na server
         std::cout << "Sending: " << messageToSend << std::endl;
         if (send(sockfd, messageToSend.c_str(), messageToSend.size(), 0) == -1) {
             std::perror("ERROR: send failed");
@@ -120,9 +125,9 @@ void TcpChatClient::run() {
         }
     }
 
- 
-    receiverThread.join();  
+    receiverThread.join();
 }
+
 
 void TcpChatClient::printHelp() {
     std::cout << "/auth {Username} {Secret} {DisplayName} - Authenticate user\n";
