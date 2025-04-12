@@ -1,14 +1,15 @@
 #include <iostream>
 #include <string>
-#include <cstring>      // memset
+#include <cstring>
 #include <sys/types.h>
-#include <sys/socket.h> // socket, connect, AF_INET, SOCK_STREAM
-#include <netdb.h>      // getaddrinfo, addrinfo, freeaddrinfo
-#include <unistd.h>     // close()
-#include <cerrno>    
-#include "TcpChatClient.h"  
-#define DEBUG_PRINT  
-#include "Logger.h"
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <cerrno>
+#include <thread> 
+#include "TcpChatClient.h"
+#include "Server.h"
+
 void printHelp() {
     std::cout << "Usage: ./ipk25chat-client -t <tcp|udp> -s <server> [-p port] [-d timeout_ms] [-r retries] [-h]\n";
     std::cout << "  -t      Transport protocol: tcp or udp (REQUIRED)\n";
@@ -20,21 +21,17 @@ void printHelp() {
 }
 
 int main(int argc, char* argv[]) {
-    printf_debug("Starting the program");
     std::string transport;
     std::string server;
     
     int port = 4567;
-    int timeout = 250;
-    int retries = 3;
 
+    // Zpracování argumentů pro příkazovou řádku
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-t" && i + 1 < argc) transport = argv[++i];
         else if (arg == "-s" && i + 1 < argc) server = argv[++i];
         else if (arg == "-p" && i + 1 < argc) port = std::stoi(argv[++i]);
-        else if (arg == "-d" && i + 1 < argc) timeout = std::stoi(argv[++i]);
-        else if (arg == "-r" && i + 1 < argc) retries = std::stoi(argv[++i]);
         else if (arg == "-h") {
             printHelp();
             return 0;
@@ -51,11 +48,15 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // Spuštění serveru v samostatném vlákně
+    std::thread serverThread(startServer, port);
+    serverThread.detach();  // Odsynchronizování vlákna
+
     if (transport == "tcp") {
         TcpChatClient client(server, port);
         if (!client.connectToServer()) return 1;
         client.run();
     }
-    printf_debug("Program finished");
+
     return 0;
 }
