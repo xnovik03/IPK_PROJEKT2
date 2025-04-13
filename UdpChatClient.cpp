@@ -9,8 +9,8 @@
 #include <netinet/in.h>
 
 UdpChatClient::UdpChatClient(const std::string& server, int port)
-    : serverAddress(server), serverPort(port), sockfd(-1) {
-
+    : serverAddress(server), serverPort(port), sockfd(-1),
+      nextMessageId(0), displayName("") {
 }
 
 UdpChatClient::~UdpChatClient() {
@@ -82,10 +82,12 @@ void UdpChatClient::run() {
 
         // Kontrola, zda se jedná o příkaz začínající lomítkem
         if (!input.empty() && input[0] == '/') {
-            // Zkusíme zpracovat /auth příkaz
+         
             if (input.rfind("/auth", 0) == 0) {
                 auto authOpt = InputHandler::parseAuthCommand(input);
                 if (authOpt) {
+                    
+                    this->displayName = authOpt->displayName;
                     UdpMessage authMsg = buildAuthUdpMessage(*authOpt, nextMessageId++);
                     std::vector<uint8_t> buffer = packUdpMessage(authMsg);
                     ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
@@ -98,8 +100,9 @@ void UdpChatClient::run() {
                 } else {
                     std::cout << "Neplatný /auth příkaz. Správný formát: /auth {Username} {Secret} {DisplayName}" << std::endl;
                 }
-                continue; 
+                continue;
             }
+
             // Zpracování /join příkazu
             if (input.rfind("/join", 0) == 0) {
                 // Vstupní formát očekává: /join channelID

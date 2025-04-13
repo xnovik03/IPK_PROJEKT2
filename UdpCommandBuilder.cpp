@@ -17,18 +17,16 @@ UdpMessage buildAuthUdpMessage(const AuthCommand& cmd, uint16_t messageId) {
     msg.type = UdpMessageType::AUTH;
     msg.messageId = messageId;
     
-    // Vytvoříme payload složený z jednotlivých polí ukončených nulou.
     std::vector<uint8_t> payload;
     
-    // Přidání username
+    
     std::vector<uint8_t> usernameBytes = packString(cmd.username);
     payload.insert(payload.end(), usernameBytes.begin(), usernameBytes.end());
     
-    // Přidání display name
+   
     std::vector<uint8_t> displayNameBytes = packString(cmd.displayName);
     payload.insert(payload.end(), displayNameBytes.begin(), displayNameBytes.end());
-    
-    // Přidání secret
+
     std::vector<uint8_t> secretBytes = packString(cmd.secret);
     payload.insert(payload.end(), secretBytes.begin(), secretBytes.end());
     
