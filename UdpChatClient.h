@@ -13,6 +13,8 @@ public:
 
     void run();
 
+    void printHelp();
+
 private:
     std::string serverAddress;
     int serverPort;

@@ -142,8 +142,11 @@ void UdpChatClient::run() {
                 std::cout << "Display name změněn na: " << displayName << std::endl;
                 continue;
             }
-
+            if (input.rfind("/help", 0) == 0) {
+                printHelp();
+                continue;
         }
+}
         else {
            
             std::cout << "Vstup nebyl rozpoznán jako příkaz." << std::endl;
@@ -152,3 +155,12 @@ void UdpChatClient::run() {
     }
 }
 
+// Definice funkce pro tisk nápovědy
+void UdpChatClient::printHelp() {
+    std::cout << "Podporované příkazy:" << std::endl;
+    std::cout << "  /auth {Username} {Secret} {DisplayName}  - Přihlášení uživatele" << std::endl;
+    std::cout << "  /join {ChannelID}                     - Připojení do kanálu" << std::endl;
+    std::cout << "  /rename {DisplayName}                  - Změna zobrazovaného jména" << std::endl;
+    std::cout << "  /help                                  - Zobrazení této nápovědy" << std::endl;
+    std::cout << "  /quit                                  - Ukončení klienta" << std::endl;
+}
