@@ -2,8 +2,20 @@
 #include <string>
 #include <cstring>
 #include <unistd.h>
-#include "TcpChatClient.h"  // Pokud máte tento soubor pro klienta
+#include "TcpChatClient.h"  
+#include <csignal>
+#include <cstdlib>
+TcpChatClient* globalClient = nullptr; 
 
+
+void signalHandler(int signal) {
+    (void)signal; 
+    if (globalClient) {
+        std::cout << "Odesílám BYE zprávu...\n";
+        globalClient->sendByeMessage();
+    }
+    std::exit(0);
+}
 void printHelp() {
     std::cout << "Usage: ./ipk25chat-client -t <tcp|udp> -s <server> [-p port] [-d timeout_ms] [-r retries] [-h]\n";
     std::cout << "  -t      Transport protocol: tcp or udp (REQUIRED)\n";
@@ -15,6 +27,7 @@ void printHelp() {
 }
 
 int main(int argc, char* argv[]) {
+    std::signal(SIGINT, signalHandler);
     std::string transport;
     std::string server;
     
@@ -42,8 +55,9 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    if (transport == "tcp") {
+      if (transport == "tcp") {
         TcpChatClient client(server, port);
+        globalClient = &client; 
         if (!client.connectToServer()) return 1;
         client.run();
     }

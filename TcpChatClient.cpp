@@ -1,4 +1,3 @@
-
 #include "TcpChatClient.h"
 #include "InputHandler.h"
 #include <iostream>
@@ -10,6 +9,9 @@
 #include <unistd.h>      // close()
 #include <cerrno>        // perror
 #include <thread>
+#include <sys/select.h>  // pro select()
+#include "Message.h"
+
 TcpChatClient::TcpChatClient(const std::string& host, int port)
     : server(host), port(port), sockfd(-1) {}
 
@@ -47,11 +49,31 @@ bool TcpChatClient::connectToServer() {
     std::cout << "TCP client connected successfully.\n";
     return true;
 }
+Message TcpChatClient::parseMessage(const std::string& buffer) {
+    // Assuming the first word indicates the message type
+    if (buffer.find("AUTH") == 0) {
+        return Message::fromBuffer(buffer);  // Handle AUTH
+    } else if (buffer.find("JOIN") == 0) {
+        return Message::fromBuffer(buffer);  // Handle JOIN
+    } else if (buffer.find("BYE") == 0) {
+        return Message::fromBuffer(buffer);  // Handle BYE
+    } else if (buffer.find("ERR") == 0) {
+        return Message::fromBuffer(buffer);  // Handle ERR
+    } else if (buffer.find("REPLY") == 0) {
+        return Message::fromBuffer(buffer);  // Handle REPLY
+    } else if (buffer.find("MSG") == 0) {
+        return Message::fromBuffer(buffer);  // Handle MSG
+    }
+    // If not recognized, return an empty message or handle as needed
+    return Message(Message::Type::MSG, "Unknown message type");  // Use Message::Type
+}
+
+
 
 void TcpChatClient::receiveServerResponse() {
     char buffer[1024];
     while (true) {
-        ssize_t received = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
+        ssize_t received = read(sockfd, buffer, sizeof(buffer) - 1); // Používáme read() místo recv()
         if (received <= 0) {
             std::cerr << "Connection closed or error occurred.\n";
             break;
@@ -59,13 +81,21 @@ void TcpChatClient::receiveServerResponse() {
         buffer[received] = '\0';
         std::cout << "Server response: " << buffer << std::endl;
 
-        // Zpracování odpovědi od serveru
-        if (std::string(buffer).find("REPLY OK") != std::string::npos) {
-            std::cout << "Command successfully processed." << std::endl;
-        } else if (std::string(buffer).find("REPLY NOK") != std::string::npos) {
-            std::cerr << "Command failed." << std::endl;
-        } else {
-            std::cerr << "Unknown response from server: " << buffer << std::endl;
+        // Parse the response into a Message object (this depends on your Message class structure)
+        Message reply = parseMessage(buffer);
+
+        // Process the reply
+        process_reply(reply);
+
+        // Odpovědi typu ERR nebo BYE
+        if (std::string(buffer).find("ERR") == 0) {
+            std::cerr << "ERROR FROM SERVER: " << buffer + 4 << std::endl;
+            close(sockfd);  // Ukončení spojení při chybě
+            break;
+        } else if (std::string(buffer).find("BYE") == 0) {
+            std::cout << "Server is closing the connection...\n";
+            close(sockfd);  // Ukončení spojení při obdržení BYE
+            break;
         }
     }
 }
@@ -125,9 +155,9 @@ void TcpChatClient::run() {
         }
     }
 
+    sendByeMessage();  // Zavolání sendByeMessage až po ukončení komunikace
     receiverThread.join();
 }
-
 
 void TcpChatClient::printHelp() {
     std::cout << "/auth {Username} {Secret} {DisplayName} - Authenticate user\n";
@@ -136,3 +166,32 @@ void TcpChatClient::printHelp() {
     std::cout << "/help - Show this help message\n";
 }
 
+void TcpChatClient::sendByeMessage() {
+    if (!displayName.empty()) {
+        Message byeMessage = Message::createByeMessage(displayName);
+        std::cout << "Sending BYE message: " << byeMessage.getContent() << "\r\n" << std::endl;
+        byeMessage.sendMessage(sockfd);  
+    }
+}
+
+void TcpChatClient::process_reply(const Message& reply)
+{
+    if (reply.getType() == Message::REPLY) {
+        std::string content = reply.getContent(); 
+        auto pos = content.find(' ');
+        if (pos == std::string::npos) {
+            std::cout << "Malformed REPLY: " << content << std::endl;
+            return;
+        }
+        std::string status = content.substr(0, pos); // "OK" nebo "NOK"
+        std::string msg = content.substr(pos + 1);     // text zprávy
+
+        if (status == "OK") {
+            std::cout << "Action Success: " << msg << std::endl;
+        } else if (status == "NOK") {
+            std::cout << "Action Failure: " << msg << std::endl;
+        } else {
+            std::cout << "Unknown REPLY status: " << content << std::endl;
+        }
+    }
+}

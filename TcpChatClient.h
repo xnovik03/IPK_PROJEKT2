@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include "Message.h"
 
 class TcpChatClient {
 public:
@@ -9,6 +10,8 @@ public:
     bool connectToServer();
     void run();
     void printHelp();
+    void sendByeMessage();
+    void process_reply(const Message& reply);
 
 private:
     std::string server;
@@ -16,5 +19,6 @@ private:
     int port;
     int sockfd;
 
-    void receiveServerResponse(); 
+    void receiveServerResponse();
+    Message parseMessage(const std::string& buffer); 
 };
