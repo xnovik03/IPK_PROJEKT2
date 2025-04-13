@@ -1,4 +1,7 @@
 #include "UdpChatClient.h"
+#include "UdpCommandBuilder.h"
+#include "MessageUdp.h"
+#include "InputHandler.h"
 #include <iostream>
 #include <cstring>
 #include <unistd.h>
@@ -72,24 +75,38 @@ bool UdpChatClient::connectToServer() {
 }
 
 void UdpChatClient::run() {
-    std::cout << "UDP klient spuštěn. Zadejte zprávu pro odeslání na server :\n";
+    std::cout << "UDP klient spuštěn. Zadejte příkaz: " << std::endl;
+    std::string input;
+    while (std::getline(std::cin, input)) {
+        if (input == "/quit") break;
 
-    std::string line;
-    while (std::getline(std::cin, line)) {
-        if (line == "quit") break;
-       
-        if (line.find("\r\n") == std::string::npos)
-            line += "\r\n";
-        
-        ssize_t sentBytes = sendto(sockfd, line.c_str(), line.size(), 0,
-                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-        if (sentBytes < 0) {
-            perror("ERROR: Odeslání zprávy selhalo");
-        } else {
-            std::cout << "Odeslána zpráva: " << line;
+        // Kontrola, zda se jedná o příkaz začínající lomítkem
+        if (!input.empty() && input[0] == '/') {
+            // Zkusíme zpracovat /auth příkaz
+            if (input.rfind("/auth", 0) == 0) {
+                auto authOpt = InputHandler::parseAuthCommand(input);
+                if (authOpt) {
+                    UdpMessage authMsg = buildAuthUdpMessage(*authOpt, nextMessageId++);
+                    std::vector<uint8_t> buffer = packUdpMessage(authMsg);
+                    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+                    if (sentBytes < 0) {
+                        perror("ERROR: Odeslání UDP AUTH zprávy selhalo");
+                    } else {
+                        std::cout << "UDP AUTH zpráva odeslána." << std::endl;
+                    }
+                } else {
+                    std::cout << "Neplatný /auth příkaz. Správný formát: /auth {Username} {Secret} {DisplayName}" << std::endl;
+                }
+                continue; 
+            }
+          
         }
+        else {
+           
+            std::cout << "Vstup nebyl rozpoznán jako příkaz." << std::endl;
+        }
+        std::cout << "Zadejte příkaz: " << std::endl;
     }
-
-    std::cout << "Ukončuji UDP klienta...\n";
 }
 

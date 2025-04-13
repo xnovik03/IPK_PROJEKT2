@@ -18,7 +18,7 @@ private:
     int serverPort;
     int sockfd;
     struct sockaddr_in serverAddr;
-
+    uint16_t nextMessageId;
     // Pomocné metody
     bool bindSocket();
     bool resolveServerAddr();
