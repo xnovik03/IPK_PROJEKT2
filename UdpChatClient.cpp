@@ -126,6 +126,23 @@ void UdpChatClient::run() {
                 }
                 continue;
             }
+            // Přidání  příkazu /rename
+            if (input.rfind("/rename", 0) == 0) {
+              
+                std::string newDisplayName = input.substr(8);  
+                // Odstraníme mezery na začátku a konci
+                newDisplayName.erase(0, newDisplayName.find_first_not_of(" \t"));
+                newDisplayName.erase(newDisplayName.find_last_not_of(" \t") + 1);
+                if (newDisplayName.empty()) {
+                    std::cout << "Neplatný /rename příkaz: Display name nesmí být prázdný." << std::endl;
+                    continue;
+                }
+                // Aktualizace lokální proměnné displayName
+                displayName = newDisplayName;
+                std::cout << "Display name změněn na: " << displayName << std::endl;
+                continue;
+            }
+
         }
         else {
            
