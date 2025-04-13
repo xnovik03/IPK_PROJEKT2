@@ -1,6 +1,6 @@
-
 #include "InputHandler.h"
 #include <sstream>
+#include <optional>
 
 std::optional<AuthCommand> InputHandler::parseAuthCommand(const std::string& input) {
     std::istringstream iss(input);
@@ -13,6 +13,7 @@ std::optional<AuthCommand> InputHandler::parseAuthCommand(const std::string& inp
 
     return AuthCommand{username, secret, displayName};
 }
+
 std::optional<std::string> InputHandler::parseJoinCommand(const std::string& line) {
     std::istringstream iss(line);
     std::string cmd, channel;
@@ -21,7 +22,6 @@ std::optional<std::string> InputHandler::parseJoinCommand(const std::string& lin
     
     if (cmd == "/join") {
         iss >> channel;  
-        
         if (!channel.empty()) {
             return channel; 
         }
@@ -29,5 +29,3 @@ std::optional<std::string> InputHandler::parseJoinCommand(const std::string& lin
     
     return std::nullopt; 
 }
-
-
