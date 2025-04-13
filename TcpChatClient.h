@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include "Message.h"
+#include "MessageTcp.h"
 
 class TcpChatClient {
 public:

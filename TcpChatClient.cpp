@@ -10,7 +10,7 @@
 #include <cerrno>        // perror
 #include <thread>
 #include <sys/select.h>  // pro select()
-#include "Message.h"
+#include "MessageTcp.h"
 
 TcpChatClient::TcpChatClient(const std::string& host, int port)
     : server(host), port(port), sockfd(-1) {}
