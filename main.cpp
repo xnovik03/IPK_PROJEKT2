@@ -3,6 +3,7 @@
 #include <cstring>
 #include <unistd.h>
 #include "TcpChatClient.h"  
+#include "UdpChatClient.h"
 #include <csignal>
 #include <cstdlib>
 TcpChatClient* globalClient = nullptr; 
@@ -61,6 +62,10 @@ int main(int argc, char* argv[]) {
         if (!client.connectToServer()) return 1;
         client.run();
     }
-
+       else if (transport == "udp") {
+        UdpChatClient udpClient(server, port);
+        if (!udpClient.connectToServer()) return 1;
+        udpClient.run();
+    }
     return 0;
 }
