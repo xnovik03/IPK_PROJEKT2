@@ -19,6 +19,7 @@ private:
     int sockfd;
     struct sockaddr_in serverAddr;
     uint16_t nextMessageId;
+    std::string displayName;
     // Pomocné metody
     bool bindSocket();
     bool resolveServerAddr();

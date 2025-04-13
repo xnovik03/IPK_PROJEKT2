@@ -100,7 +100,29 @@ void UdpChatClient::run() {
                 }
                 continue; 
             }
-          
+            // Zpracování /join příkazu
+            if (input.rfind("/join", 0) == 0) {
+                // Vstupní formát očekává: /join channelID
+                auto joinOpt = InputHandler::parseJoinCommand(input);
+                if (joinOpt) {
+                    if (displayName.empty()) {
+                        std::cout << "Nejprve se musíte autentizovat (/auth)." << std::endl;
+                        continue;
+                    }
+                    UdpMessage joinMsg = buildJoinUdpMessage(joinOpt.value(), displayName, nextMessageId++);
+                    std::vector<uint8_t> buffer = packUdpMessage(joinMsg);
+                    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+                    if (sentBytes < 0) {
+                        perror("ERROR: Odeslání UDP JOIN zprávy selhalo");
+                    } else {
+                        std::cout << "UDP JOIN zpráva odeslána." << std::endl;
+                    }
+                } else {
+                    std::cout << "Neplatný /join příkaz. Správný formát: /join {ChannelID}" << std::endl;
+                }
+                continue;
+            }
         }
         else {
            
