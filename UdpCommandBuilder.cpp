@@ -51,3 +51,21 @@ UdpMessage buildJoinUdpMessage(const std::string& channel, const std::string& di
     msg.payload = payload;
     return msg;
 }
+UdpMessage buildMsgUdpMessage(const std::string& displayName, const std::string& messageContent, uint16_t messageId) {
+    UdpMessage msg;
+    msg.type = UdpMessageType::MSG;
+    msg.messageId = messageId;
+    
+    std::vector<uint8_t> payload;
+    
+ 
+    std::vector<uint8_t> displayNameBytes = packString(displayName);
+    payload.insert(payload.end(), displayNameBytes.begin(), displayNameBytes.end());
+    
+ 
+    std::vector<uint8_t> contentBytes = packString(messageContent);
+    payload.insert(payload.end(), contentBytes.begin(), contentBytes.end());
+    
+    msg.payload = payload;
+    return msg;
+}

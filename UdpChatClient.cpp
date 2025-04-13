@@ -149,12 +149,23 @@ void UdpChatClient::run() {
 }
         else {
            
-            std::cout << "Vstup nebyl rozpoznán jako příkaz." << std::endl;
+            if (displayName.empty()) {
+                std::cout << "Nejprve se musíte autentizovat (/auth) než odešlete zprávu." << std::endl;
+            } else {
+                UdpMessage msgMsg = buildMsgUdpMessage(displayName, input, nextMessageId++);
+                std::vector<uint8_t> buffer = packUdpMessage(msgMsg);
+                ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                           (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+                if (sentBytes < 0) {
+                    perror("ERROR: Odeslání UDP MSG zprávy selhalo");
+                } else {
+                    std::cout << "UDP MSG zpráva odeslána." << std::endl;
+                }
+            }
         }
-        std::cout << "Zadejte příkaz: " << std::endl;
+      
     }
 }
-
 // Definice funkce pro tisk nápovědy
 void UdpChatClient::printHelp() {
     std::cout << "Podporované příkazy:" << std::endl;

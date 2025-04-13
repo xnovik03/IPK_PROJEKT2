@@ -13,4 +13,5 @@ UdpMessage buildAuthUdpMessage(const AuthCommand& cmd, uint16_t messageId);
 
 UdpMessage buildJoinUdpMessage(const std::string& channel, const std::string& displayName, uint16_t messageId);
 
+UdpMessage buildMsgUdpMessage(const std::string& displayName, const std::string& messageContent, uint16_t messageId);
 #endif // UDPCOMMANDBUILDER_H
