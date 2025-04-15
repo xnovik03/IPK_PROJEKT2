@@ -4,13 +4,16 @@
 #include <unistd.h>
 #include "TcpChatClient.h"  
 #include "UdpChatClient.h"
+#include "ChatClient.h"
 #include <csignal>
 #include <cstdlib>
-TcpChatClient* globalClient = nullptr; 
 
+// Globální ukazatel na ChatClient (společné rozhraní pro oba typy klienta)
+ChatClient* globalClient = nullptr;
 
 void signalHandler(int signal) {
     (void)signal; 
+    std::cout << "SIGINT přijat!" << std::endl;
     if (globalClient) {
         std::cout << "Odesílám BYE zprávu...\n";
         globalClient->sendByeMessage();
@@ -64,6 +67,7 @@ int main(int argc, char* argv[]) {
     }
        else if (transport == "udp") {
         UdpChatClient udpClient(server, port);
+        globalClient = &udpClient;
         if (!udpClient.connectToServer()) return 1;
         udpClient.run();
     }

@@ -2,11 +2,13 @@
 #define UDPCHATCLIENT_H
 
 #include "MessageUdp.h"
+#include "ChatClient.h"  
 #include <string>
 #include <netinet/in.h>
 #include <unordered_set>
+
    
-class UdpChatClient {
+class UdpChatClient : public ChatClient {
 public:
     UdpChatClient(const std::string& server, int port);
     ~UdpChatClient();

@@ -226,10 +226,11 @@ void UdpChatClient::processErrMessage(const UdpMessage& errMsg) {
 void UdpChatClient::sendByeMessage() {
     if (!displayName.empty()) {
         UdpMessage byeMsg;
-        byeMsg.type = UdpMessageType::BYE;   
+        byeMsg.type = UdpMessageType::BYE;
         byeMsg.messageId = nextMessageId++;   
         byeMsg.payload = packString(displayName);
         std::vector<uint8_t> buffer = packUdpMessage(byeMsg);
+        std::cout << "DEBUG: Odesílám BYE zprávu s MessageID " << byeMsg.messageId << ", payload size = " << byeMsg.payload.size() << std::endl;
         ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
                                    (struct sockaddr*)&serverAddr, sizeof(serverAddr));
         if (sentBytes < 0) {
@@ -239,6 +240,7 @@ void UdpChatClient::sendByeMessage() {
         }
     }
 }
+
 void UdpChatClient::receiveServerResponseUDP() {
     while (true) {
         uint8_t recvBuffer[1024];

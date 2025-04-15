@@ -1,8 +1,9 @@
 #pragma once
 #include <string>
 #include "MessageTcp.h"
+#include "ChatClient.h"
 
-class TcpChatClient {
+class TcpChatClient : public ChatClient {
 public:
     TcpChatClient(const std::string& host, int port);
     ~TcpChatClient();
