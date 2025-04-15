@@ -24,6 +24,7 @@ private:
     int sockfd;
     void processReplyMessage(const UdpMessage& replyMsg);
     void processErrMessage(const UdpMessage& errMsg);
+    void receiveServerResponseUDP();
     struct sockaddr_in serverAddr;
     uint16_t nextMessageId;
     std::string displayName;

@@ -176,7 +176,7 @@ void UdpChatClient::printHelp() {
     std::cout << "  /quit                                  - Ukončení klienta" << std::endl;
 }
 // Definice  funkce pro zpracování REPLY zprávy
-void processReplyMessage(const UdpMessage& replyMsg) {
+void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
     if (replyMsg.payload.size() < 3) {
         std::cerr << "REPLY zpráva je příliš krátká." << std::endl;
         return;
@@ -187,7 +187,6 @@ void processReplyMessage(const UdpMessage& replyMsg) {
     uint16_t refMessageId;
     std::memcpy(&refMessageId, &replyMsg.payload[1], sizeof(uint16_t));
     refMessageId = ntohs(refMessageId);
-    
     // Zbytek payloadu je textová zpráva, ukončená nulou.
     std::string content;
     if (replyMsg.payload.size() > 3) {
@@ -204,17 +203,15 @@ void processReplyMessage(const UdpMessage& replyMsg) {
         std::cout << "Action Failure: " << content << std::endl;
     }
 }
-
 // Definice  funkce pro zpracování ERR zprávy
-void processErrMessage(const UdpMessage& errMsg) {
+void UdpChatClient::processErrMessage(const UdpMessage& errMsg) {
     // Ověříme, že payload má minimálně 1 bajt 
     if (errMsg.payload.size() < 1) {
         std::cerr << "ERR zpráva je prázdná." << std::endl;
         return;
     }
     
-  
-    std::string errorContent = std::string(errMsg.payload.begin(), errMsg.payload.end());
+    std::string errorContent(errMsg.payload.begin(), errMsg.payload.end());
     // Odstraníme ukončovací nulový bajt, pokud existuje.
     size_t pos = errorContent.find('\0');
     if (pos != std::string::npos) {
@@ -222,9 +219,9 @@ void processErrMessage(const UdpMessage& errMsg) {
     }
     
     std::cerr << "Chyba od serveru (ERR): " << errorContent << std::endl;
-    
     exit(EXIT_FAILURE);
 }
+
 void UdpChatClient::sendByeMessage() {
     if (!displayName.empty()) {
         UdpMessage byeMsg;
@@ -241,3 +238,57 @@ void UdpChatClient::sendByeMessage() {
         }
     }
 }
+void UdpChatClient::receiveServerResponseUDP() {
+    while (true) {
+        uint8_t recvBuffer[1024];
+        struct sockaddr_in fromAddr;
+        socklen_t addrLen = sizeof(fromAddr);
+        ssize_t bytesReceived = recvfrom(sockfd, recvBuffer, sizeof(recvBuffer), 0,
+                                         (struct sockaddr*)&fromAddr, &addrLen);
+        if (bytesReceived <= 0)
+            break;
+        std::vector<uint8_t> data(recvBuffer, recvBuffer + bytesReceived);
+        UdpMessage receivedMsg;
+        if (unpackUdpMessage(data, receivedMsg)) {
+            if (receivedMsg.type == UdpMessageType::REPLY) {
+                processReplyMessage(receivedMsg);
+            } else if (receivedMsg.type == UdpMessageType::ERR) {
+                processErrMessage(receivedMsg);
+            } else if (receivedMsg.type == UdpMessageType::PING) {
+                UdpMessage confirmMsg = buildConfirmUdpMessage(receivedMsg.messageId);
+                std::vector<uint8_t> confirmBuffer = packUdpMessage(confirmMsg);
+                ssize_t sentBytes = sendto(sockfd, confirmBuffer.data(), confirmBuffer.size(), 0,
+                                           (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+                if (sentBytes < 0)
+                    perror("ERROR: Odeslání CONFIRM pro PING selhalo");
+                else
+                    std::cout << "CONFIRM pro PING odeslán (MessageID " << receivedMsg.messageId << ")" << std::endl;
+            } else if (receivedMsg.type == UdpMessageType::BYE) {
+                std::string byeSender;
+                if (!receivedMsg.payload.empty()) {
+                    byeSender = std::string(receivedMsg.payload.begin(), receivedMsg.payload.end());
+                    size_t pos = byeSender.find('\0');
+                    if (pos != std::string::npos)
+                        byeSender = byeSender.substr(0, pos);
+                }
+                std::cout << "Server (" << byeSender << ") ukončuje spojení (BYE obdrženo)." << std::endl;
+                break;  
+            } else if (receivedMsg.type == UdpMessageType::MSG) {
+             
+                std::string fullPayload(receivedMsg.payload.begin(), receivedMsg.payload.end());
+                size_t delimPos = fullPayload.find('\0');
+                if (delimPos != std::string::npos) {
+                    std::string sender = fullPayload.substr(0, delimPos);
+                    std::string messageContent = fullPayload.substr(delimPos + 1);
+                    size_t termPos = messageContent.find('\0');
+                    if (termPos != std::string::npos)
+                        messageContent = messageContent.substr(0, termPos);
+                    std::cout << sender << ": " << messageContent << std::endl;
+                } else {
+                    std::cout << "Neplatný MSG payload." << std::endl;
+                }
+            }
+        }
+    }
+}
+
