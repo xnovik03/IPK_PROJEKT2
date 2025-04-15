@@ -16,6 +16,8 @@ public:
 
     void printHelp();
 
+    void sendByeMessage();
+
 private:
     std::string serverAddress;
     int serverPort;

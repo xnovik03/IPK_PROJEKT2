@@ -225,3 +225,19 @@ void processErrMessage(const UdpMessage& errMsg) {
     
     exit(EXIT_FAILURE);
 }
+void UdpChatClient::sendByeMessage() {
+    if (!displayName.empty()) {
+        UdpMessage byeMsg;
+        byeMsg.type = UdpMessageType::BYE;   
+        byeMsg.messageId = nextMessageId++;   
+        byeMsg.payload = packString(displayName);
+        std::vector<uint8_t> buffer = packUdpMessage(byeMsg);
+        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        if (sentBytes < 0) {
+            perror("ERROR: Odeslání UDP BYE zprávy selhalo");
+        } else {
+            std::cout << "UDP BYE zpráva odeslána." << std::endl;
+        }
+    }
+}
