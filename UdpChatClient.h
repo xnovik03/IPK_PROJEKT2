@@ -4,7 +4,8 @@
 #include "MessageUdp.h"
 #include <string>
 #include <netinet/in.h>
-
+#include <unordered_set>
+   
 class UdpChatClient {
 public:
     UdpChatClient(const std::string& server, int port);
@@ -28,6 +29,7 @@ private:
     struct sockaddr_in serverAddr;
     uint16_t nextMessageId;
     std::string displayName;
+    std::unordered_set<uint16_t> confirmedMessageIds;
     // Pomocné metody
     bool bindSocket();
     bool resolveServerAddr();

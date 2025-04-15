@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <unordered_set>
 
 UdpChatClient::UdpChatClient(const std::string& server, int port)
     : serverAddress(server), serverPort(port), sockfd(-1),
@@ -250,6 +251,10 @@ void UdpChatClient::receiveServerResponseUDP() {
         std::vector<uint8_t> data(recvBuffer, recvBuffer + bytesReceived);
         UdpMessage receivedMsg;
         if (unpackUdpMessage(data, receivedMsg)) {
+            if (confirmedMessageIds.find(receivedMsg.messageId) != confirmedMessageIds.end()) {
+                continue;
+            }
+            confirmedMessageIds.insert(receivedMsg.messageId);
             if (receivedMsg.type == UdpMessageType::REPLY) {
                 processReplyMessage(receivedMsg);
             } else if (receivedMsg.type == UdpMessageType::ERR) {
