@@ -204,3 +204,24 @@ void processReplyMessage(const UdpMessage& replyMsg) {
         std::cout << "Action Failure: " << content << std::endl;
     }
 }
+
+// Definice  funkce pro zpracování ERR zprávy
+void processErrMessage(const UdpMessage& errMsg) {
+    // Ověříme, že payload má minimálně 1 bajt 
+    if (errMsg.payload.size() < 1) {
+        std::cerr << "ERR zpráva je prázdná." << std::endl;
+        return;
+    }
+    
+  
+    std::string errorContent = std::string(errMsg.payload.begin(), errMsg.payload.end());
+    // Odstraníme ukončovací nulový bajt, pokud existuje.
+    size_t pos = errorContent.find('\0');
+    if (pos != std::string::npos) {
+        errorContent = errorContent.substr(0, pos);
+    }
+    
+    std::cerr << "Chyba od serveru (ERR): " << errorContent << std::endl;
+    
+    exit(EXIT_FAILURE);
+}
