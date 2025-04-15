@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <algorithm>
 #include <iterator>
+#include <arpa/inet.h>
+#include <cstring>
 
 // Převod řetězce na vector<uint8_t> se 0 na konci.
 std::vector<uint8_t> packString(const std::string& s) {
@@ -67,5 +69,15 @@ UdpMessage buildMsgUdpMessage(const std::string& displayName, const std::string&
     payload.insert(payload.end(), contentBytes.begin(), contentBytes.end());
     
     msg.payload = payload;
+    return msg;
+}
+UdpMessage buildConfirmUdpMessage(uint16_t refMessageId) {
+    UdpMessage msg;
+    msg.type = UdpMessageType::CONFIRM;  
+    msg.messageId = 0;
+    uint16_t netRefId = htons(refMessageId);
+    msg.payload.resize(sizeof(uint16_t));
+    std::memcpy(msg.payload.data(), &netRefId, sizeof(uint16_t));
+    
     return msg;
 }
