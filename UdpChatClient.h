@@ -1,6 +1,7 @@
 #ifndef UDPCHATCLIENT_H
 #define UDPCHATCLIENT_H
 
+#include "MessageUdp.h"
 #include <string>
 #include <netinet/in.h>
 
@@ -19,6 +20,7 @@ private:
     std::string serverAddress;
     int serverPort;
     int sockfd;
+    void processReplyMessage(const UdpMessage& replyMsg);
     struct sockaddr_in serverAddr;
     uint16_t nextMessageId;
     std::string displayName;

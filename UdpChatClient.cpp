@@ -175,3 +175,32 @@ void UdpChatClient::printHelp() {
     std::cout << "  /help                                  - Zobrazení této nápovědy" << std::endl;
     std::cout << "  /quit                                  - Ukončení klienta" << std::endl;
 }
+// Definice  funkce pro zpracování REPLY zprávy
+void processReplyMessage(const UdpMessage& replyMsg) {
+    if (replyMsg.payload.size() < 3) {
+        std::cerr << "REPLY zpráva je příliš krátká." << std::endl;
+        return;
+    }
+    
+    uint8_t result = replyMsg.payload[0];
+    
+    uint16_t refMessageId;
+    std::memcpy(&refMessageId, &replyMsg.payload[1], sizeof(uint16_t));
+    refMessageId = ntohs(refMessageId);
+    
+    // Zbytek payloadu je textová zpráva, ukončená nulou.
+    std::string content;
+    if (replyMsg.payload.size() > 3) {
+        content = std::string(replyMsg.payload.begin() + 3, replyMsg.payload.end());
+        size_t pos = content.find('\0');
+        if (pos != std::string::npos) {
+            content = content.substr(0, pos);
+        }
+    }
+    
+    if (result == 1) {
+        std::cout << "Action Success: " << content << std::endl;
+    } else {
+        std::cout << "Action Failure: " << content << std::endl;
+    }
+}
