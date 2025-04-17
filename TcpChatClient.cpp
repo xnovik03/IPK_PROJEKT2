@@ -91,14 +91,14 @@ Message TcpChatClient::parseMessage(const std::string& buffer) {
 }
 
 
-// this function implementade with AI
+// this function implementation with AI
 void TcpChatClient::receiveServerResponse() {
     char buffer[1024];
     while (true) {
         ssize_t received = read(sockfd, buffer, sizeof(buffer) - 1); 
         if (received <= 0) {
             std::cerr << "Connection closed or error occurred.\n";
-            break;
+            std::exit(0);
         }
         buffer[received] = '\0';
         std::cout << "Server response: " << buffer << std::endl;
@@ -113,11 +113,11 @@ void TcpChatClient::receiveServerResponse() {
         if (std::string(buffer).find("ERR") == 0) {
             std::cerr << "ERROR FROM SERVER: " << buffer + 4 << std::endl;
             close(sockfd);  // Ukončení spojení při chybě
-            break;
+            std::exit(1);
         } else if (std::string(buffer).find("BYE") == 0) {
             std::cout << "Server is closing the connection...\n";
             close(sockfd);  // Ukončení spojení při obdržení BYE
-            break;
+            std::exit(1);
         }
     }
 }
