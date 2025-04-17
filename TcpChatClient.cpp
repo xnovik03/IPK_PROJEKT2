@@ -159,6 +159,11 @@ void TcpChatClient::run() {
             printHelp();
             continue;
         }
+        if (displayName.empty() && line.rfind("/auth", 0) != 0) {
+            std::cout << "ERROR: not authenticated\n";
+            continue;
+        }
+
         if (line.rfind("/auth", 0) == 0) {
             auto cmd = InputHandler::parseAuthCommand(line);
             if (cmd) {
@@ -169,6 +174,7 @@ void TcpChatClient::run() {
                 std::cerr << "Invalid /auth command format.\n";
                 continue;
             }
+
         } else if (line.rfind("/join", 0) == 0) {
             auto cmd = InputHandler::parseJoinCommand(line);
             if (cmd) {
