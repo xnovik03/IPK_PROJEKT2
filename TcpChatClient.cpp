@@ -13,6 +13,8 @@
 #include "MessageTcp.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sstream>   // pro istringstream
+#include <cstdlib>   // pro std::exit
 
 TcpChatClient::TcpChatClient(const std::string& host, int port)
     : server(host), port(port), sockfd(-1) {}
@@ -93,34 +95,54 @@ Message TcpChatClient::parseMessage(const std::string& buffer) {
 
 // this function implementation with AI
 void TcpChatClient::receiveServerResponse() {
-    char buffer[1024];
+    char buffer[2048];
+    std::string leftover;
+
     while (true) {
-        ssize_t received = read(sockfd, buffer, sizeof(buffer) - 1); 
-        if (received <= 0) {
-            std::cerr << "Connection closed or error occurred.\n";
-            std::exit(0);
-        }
-        buffer[received] = '\0';
-        std::cout << "Server response: " << buffer << std::endl;
+        ssize_t n = read(sockfd, buffer, sizeof(buffer));
+        if (n <= 0) std::exit(0);
 
-        // Parse the response into a Message object (this depends on your Message class structure)
-        Message reply = parseMessage(buffer);
+        leftover.append(buffer, n);
 
-        // Process the reply
-        process_reply(reply);
+        // Zpracujeme všechny kompletní řádky ukončené "\r\n"
+        size_t pos;
+        while ((pos = leftover.find("\r\n")) != std::string::npos) {
+            std::string line = leftover.substr(0, pos);
+            leftover.erase(0, pos + 2);
 
-        // Odpovědi typu ERR nebo BYE
-        if (std::string(buffer).find("ERR") == 0) {
-            std::cerr << "ERROR FROM SERVER: " << buffer + 4 << std::endl;
-            close(sockfd);  // Ukončení spojení při chybě
-            std::exit(1);
-        } else if (std::string(buffer).find("BYE") == 0) {
-            std::cout << "Server is closing the connection...\n";
-            close(sockfd);  // Ukončení spojení při obdržení BYE
-            std::exit(1);
+            if (line.rfind("ERR", 0) == 0) {
+                // ERR → pouze chybová zpráva
+                std::string msg = line.substr(4);  // přeskočíme "ERR "
+                std::cerr << "ERROR FROM SERVER: " << msg << "\n";
+                std::exit(1);
+            }
+            else if (line.rfind("BYE", 0) == 0) {
+                // BYE → rovnou ukončíme
+                std::exit(0);
+            }
+            else if (line.rfind("REPLY", 0) == 0) {
+                // REPLY → necháme stávající zpracování
+                Message reply = Message::fromBuffer(line + "\r\n");
+                process_reply(reply);
+            }
+            else if (line.rfind("MSG", 0) == 0) {
+                // MSG FROM <sender> IS <content>
+                // Rozparsujeme manuálně:
+                //   formát: "MSG FROM <sender> IS <text>"
+                std::istringstream iss(line);
+                std::string tag, from, sender, is;
+                iss >> tag >> from >> sender >> is;
+                std::string content;
+                std::getline(iss, content);
+                if (!content.empty() && content.front() == ' ')
+                    content.erase(0,1);
+                std::cout << sender << ": " << content << "\n";
+            }
         }
     }
 }
+
+
 
 void TcpChatClient::run() {
     std::string line;
