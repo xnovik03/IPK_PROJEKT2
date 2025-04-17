@@ -240,7 +240,7 @@ void UdpChatClient::sendByeMessage() {
         }
     }
 }
-
+// this function implementade with AI
 void UdpChatClient::receiveServerResponseUDP() {
     while (true) {
         uint8_t recvBuffer[1024];

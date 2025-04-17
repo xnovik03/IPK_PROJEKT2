@@ -11,6 +11,8 @@
 #include <thread>
 #include <sys/select.h>  // pro select()
 #include "MessageTcp.h"
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 TcpChatClient::TcpChatClient(const std::string& host, int port)
     : server(host), port(port), sockfd(-1) {}
@@ -19,36 +21,57 @@ TcpChatClient::~TcpChatClient() {
     if (sockfd != -1) close(sockfd);
 }
 
+// Funkce connectToServer vychází z ukázkového kódu “Simple Stream Client”(Beej’s Guide to Network Programming, sekce 6.2).
+// https://beej.us/guide/bgnet/html/split/client-server-background.html#a-simple-stream-client
+// Původní příklad podporoval IPv4 i IPv6 a demonstroval recv/print.
+// Tuto verzi  upravila:
+//  - hints.ai_family = AF_INET → pouze IPv4  
+//  - odstraněno cyklické recv/print
+//  - vypisujeme připojenou IPv4 adresu pomocí inet_ntop()  
+//  - uvolnění struct addrinfo voláním freeaddrinfo()  
+// Tímto se funkce jenom s TCP připojením a IPv4‑only výpis.
+
 bool TcpChatClient::connectToServer() {
-    struct addrinfo hints{}, *res;
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
+    struct addrinfo hints{}, *servinfo, *p;
+    int rv;
 
-    int status = getaddrinfo(server.c_str(), std::to_string(port).c_str(), &hints, &res);
-    if (status != 0) {
-        std::cerr << "ERROR: getaddrinfo failed: " << gai_strerror(status) << "\n";
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family   = AF_INET;       // jen IPv4
+    hints.ai_socktype = SOCK_STREAM;   // TCP
+
+    if ((rv = getaddrinfo(server.c_str(), std::to_string(port).c_str(), &hints, &servinfo)) != 0) {
+        std::cerr << "getaddrinfo: " << gai_strerror(rv) << "\n";
         return false;
     }
 
-    sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (sockfd == -1) {
-        std::perror("ERROR: socket creation failed");
-        freeaddrinfo(res);
+    // loop through all the results and connect to the first we can
+    for (p = servinfo; p != nullptr; p = p->ai_next) {
+        sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (sockfd == -1) { perror("socket"); continue; }
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+            close(sockfd); perror("connect"); continue;
+        }
+        break;
+    }
+
+    if (p == nullptr) {
+        std::cerr << "client: failed to connect\n";
+        freeaddrinfo(servinfo);
         return false;
     }
 
-    if (connect(sockfd, res->ai_addr, res->ai_addrlen) == -1) {
-        std::perror("ERROR: connect failed");
-        close(sockfd);
-        sockfd = -1;
-        freeaddrinfo(res);
-        return false;
-    }
+    // Vypiš IPv4 adresu serveru
+    auto *ipv4 = reinterpret_cast<struct sockaddr_in*>(p->ai_addr);
+    char ip4[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &ipv4->sin_addr, ip4, sizeof(ip4));
+    std::cout << "client: connecting to " << ip4 << std::endl;
 
-    freeaddrinfo(res);
+    freeaddrinfo(servinfo);
     std::cout << "TCP client connected successfully.\n";
     return true;
 }
+
+
 Message TcpChatClient::parseMessage(const std::string& buffer) {
     // Assuming the first word indicates the message type
     if (buffer.find("AUTH") == 0) {
@@ -64,16 +87,15 @@ Message TcpChatClient::parseMessage(const std::string& buffer) {
     } else if (buffer.find("MSG") == 0) {
         return Message::fromBuffer(buffer);  // Handle MSG
     }
-    // If not recognized, return an empty message or handle as needed
     return Message(Message::Type::MSG, "Unknown message type");  // Use Message::Type
 }
 
 
-
+// this function implementade with AI
 void TcpChatClient::receiveServerResponse() {
     char buffer[1024];
     while (true) {
-        ssize_t received = read(sockfd, buffer, sizeof(buffer) - 1); // Používáme read() místo recv()
+        ssize_t received = read(sockfd, buffer, sizeof(buffer) - 1); 
         if (received <= 0) {
             std::cerr << "Connection closed or error occurred.\n";
             break;
