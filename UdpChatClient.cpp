@@ -35,6 +35,7 @@ bool UdpChatClient::bindSocket() {
     localAddr.sin_addr.s_addr = INADDR_ANY;
     localAddr.sin_port = htons(0); // 0 = dynamicky přidělený port
 
+    // Bindování socketu
     if (bind(sockfd, (struct sockaddr*)&localAddr, sizeof(localAddr)) < 0) {
         perror("ERROR: Bind selhal");
         close(sockfd);
@@ -79,40 +80,30 @@ void UdpChatClient::run() {
     std::cout << "UDP klient spuštěn. Zadejte příkaz: " << std::endl;
     std::string input;
     while (std::getline(std::cin, input)) {
+        if (input == "/quit") break;
 
         // Kontrola, zda se jedná o příkaz začínající lomítkem
         if (!input.empty() && input[0] == '/') {
          
             if (input.rfind("/auth", 0) == 0) {
-    auto authOpt = InputHandler::parseAuthCommand(input);
-    if (authOpt) {
-        this->displayName = authOpt->displayName;
-        UdpMessage authMsg = buildAuthUdpMessage(*authOpt, nextMessageId++);
-        std::vector<uint8_t> buffer = packUdpMessage(authMsg);
-        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
-                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-        if (sentBytes < 0) {
-            perror("ERROR: Odeslání UDP AUTH zprávy selhalo");
-        } else {
-            std::cout << "UDP AUTH zpráva odeslána." << std::endl;
-
-            // Automatically join the default channel after successful authentication
-            UdpMessage joinMsg = buildJoinUdpMessage("default", displayName, nextMessageId++);
-            std::vector<uint8_t> joinBuffer = packUdpMessage(joinMsg);
-            sentBytes = sendto(sockfd, joinBuffer.data(), joinBuffer.size(), 0,
-                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-            if (sentBytes < 0) {
-                perror("ERROR: Odeslání UDP JOIN zprávy selhalo");
-            } else {
-                std::cout << "UDP JOIN zpráva odeslána pro default channel." << std::endl;
+                auto authOpt = InputHandler::parseAuthCommand(input);
+                if (authOpt) {
+                    
+                    this->displayName = authOpt->displayName;
+                    UdpMessage authMsg = buildAuthUdpMessage(*authOpt, nextMessageId++);
+                    std::vector<uint8_t> buffer = packUdpMessage(authMsg);
+                    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+                    if (sentBytes < 0) {
+                        perror("ERROR: Odeslání UDP AUTH zprávy selhalo");
+                    } else {
+                        std::cout << "UDP AUTH zpráva odeslána." << std::endl;
+                    }
+                } else {
+                    std::cout << "Neplatný /auth příkaz. Správný formát: /auth {Username} {Secret} {DisplayName}" << std::endl;
+                }
+                continue;
             }
-        }
-    } else {
-        std::cout << "Neplatný /auth příkaz. Správný formát: /auth {Username} {Secret} {DisplayName}" << std::endl;
-    }
-    continue;
-}
-
 
             // Zpracování /join příkazu
             if (input.rfind("/join", 0) == 0) {
@@ -177,6 +168,7 @@ void UdpChatClient::run() {
       
     }
 }
+
 // Definice funkce pro tisk nápovědy
 void UdpChatClient::printHelp() {
     std::cout << "Podporované příkazy:" << std::endl;
@@ -191,12 +183,12 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
         std::cerr << "REPLY zpráva je příliš krátká." << std::endl;
         return;
     }
-    
+
     uint8_t result = replyMsg.payload[0];
-    
     uint16_t refMessageId;
     std::memcpy(&refMessageId, &replyMsg.payload[1], sizeof(uint16_t));
     refMessageId = ntohs(refMessageId);
+
     // Zbytek payloadu je textová zpráva, ukončená nulou.
     std::string content;
     if (replyMsg.payload.size() > 3) {
@@ -206,31 +198,25 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
             content = content.substr(0, pos);
         }
     }
-    
+
     if (result == 1) {
         std::cout << "Action Success: " << content << std::endl;
     } else {
         std::cout << "Action Failure: " << content << std::endl;
     }
-}
-// Definice  funkce pro zpracování ERR zprávy
-void UdpChatClient::processErrMessage(const UdpMessage& errMsg) {
-    // Ověříme, že payload má minimálně 1 bajt 
-    if (errMsg.payload.size() < 1) {
-        std::cerr << "ERR zpráva je prázdná." << std::endl;
-        return;
+
+    // Change the local variable name to avoid conflict
+    UdpMessage generatedReplyMsg = buildReplyUdpMessage("Odpověd' na vaši zprávu", nextMessageId++, refMessageId, 1);
+    std::vector<uint8_t> buffer = packUdpMessage(generatedReplyMsg);
+    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+    if (sentBytes < 0) {
+        perror("ERROR: Odeslání UDP REPLY zprávy selhalo");
+    } else {
+        std::cout << "UDP REPLY zpráva odeslána." << std::endl;
     }
-    
-    std::string errorContent(errMsg.payload.begin(), errMsg.payload.end());
-    // Odstraníme ukončovací nulový bajt, pokud existuje.
-    size_t pos = errorContent.find('\0');
-    if (pos != std::string::npos) {
-        errorContent = errorContent.substr(0, pos);
-    }
-    
-    std::cerr << "Chyba od serveru (ERR): " << errorContent << std::endl;
-    exit(EXIT_FAILURE);
 }
+
 
 void UdpChatClient::sendByeMessage() {
     if (!displayName.empty()) {
@@ -307,4 +293,24 @@ void UdpChatClient::receiveServerResponseUDP() {
         }
     }
 }
+void UdpChatClient::processErrMessage(const UdpMessage& errMsg) {
+    // Check if the payload has at least 1 byte
+    if (errMsg.payload.size() < 1) {
+        std::cerr << "ERR message is empty." << std::endl;
+        return;
+    }
 
+    // Convert the payload to a string (error message)
+    std::string errorContent(errMsg.payload.begin(), errMsg.payload.end());
+    // Remove any null terminators at the end
+    size_t pos = errorContent.find('\0');
+    if (pos != std::string::npos) {
+        errorContent = errorContent.substr(0, pos);
+    }
+
+    // Display the error message
+    std::cerr << "Error from server (ERR): " << errorContent << std::endl;
+
+    // Handle the error (you may want to exit or handle gracefully)
+    exit(EXIT_FAILURE);
+}

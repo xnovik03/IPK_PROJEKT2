@@ -19,20 +19,18 @@ UdpMessage buildAuthUdpMessage(const AuthCommand& cmd, uint16_t messageId) {
     msg.type = UdpMessageType::AUTH;
     msg.messageId = messageId;
     
-    std::vector<uint8_t> payload;
-    
-    
-    std::vector<uint8_t> usernameBytes = packString(cmd.username);
-    payload.insert(payload.end(), usernameBytes.begin(), usernameBytes.end());
-    
-   
-    std::vector<uint8_t> displayNameBytes = packString(cmd.displayName);
-    payload.insert(payload.end(), displayNameBytes.begin(), displayNameBytes.end());
+  std::vector<uint8_t> payload;
+std::vector<uint8_t> usernameBytes = packString(cmd.username);  // Ensure it's null-terminated
+payload.insert(payload.end(), usernameBytes.begin(), usernameBytes.end());
 
-    std::vector<uint8_t> secretBytes = packString(cmd.secret);
-    payload.insert(payload.end(), secretBytes.begin(), secretBytes.end());
-    
-    msg.payload = payload;
+std::vector<uint8_t> displayNameBytes = packString(cmd.displayName);  // Ensure it's null-terminated
+payload.insert(payload.end(), displayNameBytes.begin(), displayNameBytes.end());
+
+std::vector<uint8_t> secretBytes = packString(cmd.secret);  // Ensure it's null-terminated
+payload.insert(payload.end(), secretBytes.begin(), secretBytes.end());
+
+msg.payload = payload;
+
     return msg;
 }
 
@@ -74,10 +72,33 @@ UdpMessage buildMsgUdpMessage(const std::string& displayName, const std::string&
 UdpMessage buildConfirmUdpMessage(uint16_t refMessageId) {
     UdpMessage msg;
     msg.type = UdpMessageType::CONFIRM;  
-    msg.messageId = 0;
+    msg.messageId = 0; // Typically, the confirmation message has a message ID of 0
     uint16_t netRefId = htons(refMessageId);
     msg.payload.resize(sizeof(uint16_t));
     std::memcpy(msg.payload.data(), &netRefId, sizeof(uint16_t));
     
+    return msg;
+}
+UdpMessage buildReplyUdpMessage(const std::string& messageContent, uint16_t messageId, uint16_t refMessageId, uint8_t result) {
+    UdpMessage msg;
+    msg.type = UdpMessageType::REPLY;
+    msg.messageId = messageId;
+    
+    std::vector<uint8_t> payload;
+    
+    // Add result (0 or 1)
+    payload.push_back(result);
+    
+    // Add refMessageId (network byte order)
+    uint16_t netRefMessageId = htons(refMessageId);
+    uint8_t* refIdBytes = reinterpret_cast<uint8_t*>(&netRefMessageId);
+    payload.push_back(refIdBytes[0]);
+    payload.push_back(refIdBytes[1]);
+    
+    // Add message contents
+    std::vector<uint8_t> messageBytes = packString(messageContent);
+    payload.insert(payload.end(), messageBytes.begin(), messageBytes.end());
+    
+    msg.payload = payload;
     return msg;
 }

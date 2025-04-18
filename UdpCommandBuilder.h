@@ -16,4 +16,7 @@ UdpMessage buildJoinUdpMessage(const std::string& channel, const std::string& di
 UdpMessage buildMsgUdpMessage(const std::string& displayName, const std::string& messageContent, uint16_t messageId);
 
 UdpMessage buildConfirmUdpMessage(uint16_t refMessageId);
+
+UdpMessage buildReplyUdpMessage(const std::string& messageContent, uint16_t messageId, uint16_t refMessageId, uint8_t result);
+
 #endif // UDPCOMMANDBUILDER_H
