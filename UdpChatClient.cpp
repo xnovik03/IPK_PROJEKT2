@@ -79,30 +79,40 @@ void UdpChatClient::run() {
     std::cout << "UDP klient spuštěn. Zadejte příkaz: " << std::endl;
     std::string input;
     while (std::getline(std::cin, input)) {
-        if (input == "/quit") break;
 
         // Kontrola, zda se jedná o příkaz začínající lomítkem
         if (!input.empty() && input[0] == '/') {
          
             if (input.rfind("/auth", 0) == 0) {
-                auto authOpt = InputHandler::parseAuthCommand(input);
-                if (authOpt) {
-                    
-                    this->displayName = authOpt->displayName;
-                    UdpMessage authMsg = buildAuthUdpMessage(*authOpt, nextMessageId++);
-                    std::vector<uint8_t> buffer = packUdpMessage(authMsg);
-                    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
-                                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-                    if (sentBytes < 0) {
-                        perror("ERROR: Odeslání UDP AUTH zprávy selhalo");
-                    } else {
-                        std::cout << "UDP AUTH zpráva odeslána." << std::endl;
-                    }
-                } else {
-                    std::cout << "Neplatný /auth příkaz. Správný formát: /auth {Username} {Secret} {DisplayName}" << std::endl;
-                }
-                continue;
+    auto authOpt = InputHandler::parseAuthCommand(input);
+    if (authOpt) {
+        this->displayName = authOpt->displayName;
+        UdpMessage authMsg = buildAuthUdpMessage(*authOpt, nextMessageId++);
+        std::vector<uint8_t> buffer = packUdpMessage(authMsg);
+        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        if (sentBytes < 0) {
+            perror("ERROR: Odeslání UDP AUTH zprávy selhalo");
+        } else {
+            std::cout << "UDP AUTH zpráva odeslána." << std::endl;
+
+            // Automatically join the default channel after successful authentication
+            UdpMessage joinMsg = buildJoinUdpMessage("default", displayName, nextMessageId++);
+            std::vector<uint8_t> joinBuffer = packUdpMessage(joinMsg);
+            sentBytes = sendto(sockfd, joinBuffer.data(), joinBuffer.size(), 0,
+                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+            if (sentBytes < 0) {
+                perror("ERROR: Odeslání UDP JOIN zprávy selhalo");
+            } else {
+                std::cout << "UDP JOIN zpráva odeslána pro default channel." << std::endl;
             }
+        }
+    } else {
+        std::cout << "Neplatný /auth příkaz. Správný formát: /auth {Username} {Secret} {DisplayName}" << std::endl;
+    }
+    continue;
+}
+
 
             // Zpracování /join příkazu
             if (input.rfind("/join", 0) == 0) {
@@ -174,7 +184,6 @@ void UdpChatClient::printHelp() {
     std::cout << "  /join {ChannelID}                     - Připojení do kanálu" << std::endl;
     std::cout << "  /rename {DisplayName}                  - Změna zobrazovaného jména" << std::endl;
     std::cout << "  /help                                  - Zobrazení této nápovědy" << std::endl;
-    std::cout << "  /quit                                  - Ukončení klienta" << std::endl;
 }
 // Definice  funkce pro zpracování REPLY zprávy
 void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
