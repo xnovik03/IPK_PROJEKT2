@@ -14,6 +14,7 @@ public:
     void sendByeMessage();
     void process_reply(const Message& reply);
 
+   void processInvalidMessage(const std::string& invalidMessage);
 private:
     std::string server;
     std::string displayName; 
