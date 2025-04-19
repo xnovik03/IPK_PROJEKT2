@@ -22,7 +22,7 @@ public:
     void handleJoinCommand(const std::string& input);
     void handleRenameCommand(const std::string& input);
     void sendMessage(const std::string& message);
-
+    
     void sendByeMessage();
   
 private:
@@ -34,11 +34,13 @@ private:
     void receiveServerResponseUDP();
     void processConfirmMessage(const UdpMessage& confirmMsg); 
     void processMsgMessage(const UdpMessage& msgMsg);
+    void sendPingMessage();
+    void processPingMessage(const UdpMessage& pingMsg);
     struct sockaddr_in serverAddr;
     uint16_t nextMessageId;
     std::string displayName;
     std::unordered_set<uint16_t> confirmedMessageIds;
-
+    
     // Pomocné metody
     bool bindSocket();
     bool resolveServerAddr();

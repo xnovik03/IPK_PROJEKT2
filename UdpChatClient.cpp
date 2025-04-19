@@ -83,8 +83,12 @@ void UdpChatClient::run() {
         } else {
             sendMessage(input);  
         }
+
+        // Zpracování přijatých zpráv
+        receiveServerResponseUDP();  // Tato funkce zpracuje příchozí zprávy
     }
 }
+
 
 void UdpChatClient::handleCommand(const std::string& input) {
     if (input == "/help") {
@@ -123,10 +127,14 @@ void UdpChatClient::handleAuthCommand(const std::string& input) {
         } else {
             std::cout << "UDP AUTH zpráva odeslána." << std::endl;
         }
+        
+        // Čekání na odpověď REPLY od serveru
+        receiveServerResponseUDP();  // Zde čekáme na odpověď od serveru
     } else {
         std::cout << "Neplatný /auth příkaz. Správný formát: /auth {Username} {Secret} {DisplayName}" << std::endl;
     }
 }
+
 
 
 
@@ -201,23 +209,29 @@ void UdpChatClient::receiveServerResponseUDP() {
     uint8_t recvBuffer[1024];
     struct sockaddr_in fromAddr;
     socklen_t addrLen = sizeof(fromAddr);
+    
     ssize_t bytesReceived = recvfrom(sockfd, recvBuffer, sizeof(recvBuffer), 0,
                                      (struct sockaddr*)&fromAddr, &addrLen);
-    if (bytesReceived <= 0) return;
+    if (bytesReceived <= 0) {
+        std::cerr << "Chyba při přijímání zprávy!" << std::endl;
+        return;
+    }
 
     std::vector<uint8_t> data(recvBuffer, recvBuffer + bytesReceived);
     UdpMessage receivedMsg;
+    
     if (unpackUdpMessage(data, receivedMsg)) {
         switch (receivedMsg.type) {
             case UdpMessageType::REPLY:
-                processReplyMessage(receivedMsg);
+                processReplyMessage(receivedMsg);  // Zpracování REPLY zprávy
                 break;
 
             case UdpMessageType::CONFIRM:
-                processConfirmMessage(receivedMsg);
+                processConfirmMessage(receivedMsg);  // Zpracování CONFIRM zprávy
                 break;
 
             case UdpMessageType::MSG:
+                // Zpracování zprávy MSG od serveru
                 processMsgMessage(receivedMsg);
                 break;
 
@@ -232,112 +246,154 @@ void UdpChatClient::receiveServerResponseUDP() {
     }
 }
 
-
 void UdpChatClient::processErrMessage(const UdpMessage& errMsg) {
-    // Check if the payload has at least 1 byte
+    // Check if payload contains at least 1 byte
     if (errMsg.payload.size() < 1) {
         std::cerr << "ERR message is empty." << std::endl;
         return;
     }
-    
-    // Convert the payload to a string (error message)
+
+    // Convert payload to string (error message)
     std::string errorContent(errMsg.payload.begin(), errMsg.payload.end());
-    // Remove any null terminators at the end
-    size_t pos = errorContent.find('\0');
-    if (pos != std::string::npos) {
-        errorContent = errorContent.substr(0, pos);
-    }
 
-    // Display the error message
-    std::cerr << "Error from server (ERR): " << errorContent << std::endl;
-
-    // Handle the error (you may want to exit or handle gracefully)
-    exit(EXIT_FAILURE);
-}
-void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
-    if (replyMsg.payload.size() < 3) {
-        std::cerr << "ERROR:REPLY zpráva je příliš krátká." << std::endl;
+    // Find the first null byte (indicates the end of the server name)
+    size_t firstNullPos = errorContent.find('\0');
+    if (firstNullPos != std::string::npos) {
+        // Print content up to the first null byte (display name or start of error message)
+        std::cout << "ERROR FROM " << errorContent.substr(0, firstNullPos) << ": ";
+        
+        // Find the second null byte (indicates the end of the error message)
+        size_t secondNullPos = errorContent.find('\0', firstNullPos + 1);
+        if (secondNullPos != std::string::npos) {
+            // Print content between the null bytes (error message)
+            std::cout << errorContent.substr(firstNullPos + 1, secondNullPos - firstNullPos - 1) << std::endl;
+        } else {
+            std::cerr << "Error: Could not find the second null byte!" << std::endl;
+        }
+    } else {
+        std::cerr << "Error: Could not find the first null byte!" << std::endl;
         return;
     }
 
-    uint8_t result = replyMsg.payload[0];  // Výsledek akce: 1 pro OK, 0 pro NOK
-    uint16_t refMessageId;
-    std::memcpy(&refMessageId, &replyMsg.payload[1], sizeof(uint16_t));
-    refMessageId = ntohs(refMessageId);  // Získáme MessageID
-
-    // Zbytek payloadu je textová zpráva, ukončená nulou
-    std::string content;
-    if (replyMsg.payload.size() > 3) {
-        content = std::string(replyMsg.payload.begin() + 3, replyMsg.payload.end());
-        size_t pos = content.find('\0');
-        if (pos != std::string::npos) {
-            content = content.substr(0, pos);
-        }
+    // Debugging: Print payload for better insight
+    std::cerr << "Payload size: " << errMsg.payload.size() << std::endl;
+    std::cerr << "Payload (raw data): ";
+    for (auto byte : errMsg.payload) {
+        std::cerr << std::hex << static_cast<int>(byte) << " "; // Hexadecimal output
     }
+    std::cerr << std::dec << std::endl; // Switch back to decimal output
 
-    // Výsledek (OK nebo NOK)
-    std::string status = content.substr(0, 2); // "OK" nebo "NOK"
-    std::string msg = content.substr(3);       // Text zprávy (což je vše za "OK"/"NOK")
+    // Send dynamic CONFIRM message with the actual message ID
+    UdpMessage confirmMsg;
+    confirmMsg.type = UdpMessageType::CONFIRM;
+    confirmMsg.messageId = errMsg.messageId;  // Use the received message ID for confirmation
+    confirmMsg.payload.clear();  // You can choose to send additional payload here if necessary
 
-    if (status == "OK") {
-        std::cout << "Action Success: " << msg << std::endl;
-
-        // Po úspěšném REPLY se automaticky připojíme k výchozímu kanálu
-        std::cout << "Autentizace úspěšná. Připojuji se k výchozímu kanálu..." << std::endl;
-        handleJoinCommand("/join default");  
-    } else if (status == "NOK") {
-        std::cout << "Action Failure: " << msg << std::endl;
-    } else {
-        std::cout << "ERROR: Unknown REPLY status: " << content << std::endl;
-    }
-
-    // Odpovědní zpráva pro REPLY s MessageID z předchozího příkazu
-    UdpMessage generatedReplyMsg = buildReplyUdpMessage("Odpověd' na vaši zprávu", nextMessageId++, refMessageId, 1);
-    std::vector<uint8_t> buffer = packUdpMessage(generatedReplyMsg);
+    std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
     ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
                                (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     if (sentBytes < 0) {
-        perror("ERROR: Odeslání UDP REPLY zprávy selhalo");
+        perror("ERROR: Sending UDP CONFIRM message failed");
     } else {
-        std::cout << "UDP REPLY zpráva odeslána." << std::endl;
+        std::cout << "UDP CONFIRM message sent." << std::endl;
     }
+
+    // You can choose whether or not to exit the application here
+    std::exit(EXIT_FAILURE);
 }
 
-void UdpChatClient::processMsgMessage(const UdpMessage& msgMsg) {
-      if (displayName.empty()) {
-        std::cout << "ERROR: Nejprve se musíte autentifikovat (/auth) než odešlete zprávu." << std::endl;
-        return; 
-    }
-    if (msgMsg.payload.size() > 0) {
-        std::string message(msgMsg.payload.begin(), msgMsg.payload.end());
-        std::cout << "Server: " << message << std::endl;
 
-        // Potvrzení připojení k výchozímu kanálu
+
+
+void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
+    if (replyMsg.payload.size() < 3) {
+        std::cerr << "ERROR: REPLY zpráva je příliš krátká." << std::endl;
+        return;
+    }
+
+    // Prvních 3 znaky jsou status ("OK", "NOK")
+    std::string status = std::string(replyMsg.payload.begin(), replyMsg.payload.begin() + 3);
+    
+    // Zbytek je obsah zprávy
+    std::string content = std::string(replyMsg.payload.begin() + 3, replyMsg.payload.end());
+
+    // Na základě statusu reagujeme
+    if (status == "OK") {
+        std::cout << "Action Success: " << content << std::endl;
+        
+        // Posíláme zpětný potvrzovací (CONFIRM) zprávu
         UdpMessage confirmMsg;
         confirmMsg.type = UdpMessageType::CONFIRM;
-        confirmMsg.messageId = nextMessageId++;   
-        confirmMsg.payload.clear();  // Můžeme vyčistit payload, pokud není potřeba
+        confirmMsg.messageId = nextMessageId++;
+        confirmMsg.payload.clear();
         std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
-        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
-                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+
         if (sentBytes < 0) {
             perror("ERROR: Odeslání UDP CONFIRM zprávy selhalo");
         } else {
             std::cout << "UDP CONFIRM zpráva odeslána." << std::endl;
         }
+    } 
+    else if (status == "NOK") {
+        std::cout << "Action Failure: " << content << std::endl; // Zobrazí obsah chyby
+        
+        // Po obdržení "NOK" odesíláme potvrzení (CONFIRM)
+        UdpMessage confirmMsg;
+        confirmMsg.type = UdpMessageType::CONFIRM;
+        confirmMsg.messageId = nextMessageId++;
+        confirmMsg.payload.clear();
+        std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
+        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+
+        if (sentBytes < 0) {
+            perror("ERROR: Odeslání UDP CONFIRM zprávy po NOK selhalo");
+        } else {
+            std::cout << "UDP CONFIRM zpráva odeslána po NOK." << std::endl;
+        }
+    } 
+    else {
+        std::cerr << "ERROR: Neznámý status odpovědi: " << status << std::endl;
     }
 }
 
+
+void UdpChatClient::processMsgMessage(const UdpMessage& msgMsg) {
+    // Pokud je zpráva o připojení k výchozímu kanálu (typ "Joined default.")
+    if (msgMsg.payload.size() > 0) {
+        std::string message(msgMsg.payload.begin(), msgMsg.payload.end());
+
+        if (message == "Joined default.") {
+            // Když server připojí klienta k výchozímu kanálu, odpověz CONFIRM
+            UdpMessage confirmMsg;
+            confirmMsg.type = UdpMessageType::CONFIRM;
+            confirmMsg.messageId = nextMessageId++;
+            confirmMsg.payload.clear();  // Můžeme vyčistit payload, pokud není potřeba
+            std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
+            ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                       (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+            if (sentBytes < 0) {
+                perror("ERROR: Odeslání UDP CONFIRM zprávy selhalo");
+            } else {
+                std::cout << "UDP CONFIRM zpráva odeslána." << std::endl;
+            }
+        }
+    }
+}
+
+
 void UdpChatClient::processConfirmMessage(const UdpMessage& confirmMsg) {
+    // Upozornění, že používáme již existující parameter 'confirmMsg'
     std::cout << "Obdržena CONFIRM zpráva od serveru." << std::endl;
 
-    // Vytvoření odpovědi pro CONFIRM a odeslání zpět serveru
-    UdpMessage generatedConfirmMsg;
-    generatedConfirmMsg.type = UdpMessageType::CONFIRM;
-    generatedConfirmMsg.messageId = nextMessageId++;
-    generatedConfirmMsg.payload.clear();  
+    // Vytvoříme odpověď typu CONFIRM na základě obdržené zprávy
+    // Předáváme refMessageId z confirmMsg, pokud je potřeba
+    UdpMessage responseMsg = buildConfirmUdpMessage(confirmMsg.messageId);
 
-    std::vector<uint8_t> buffer = packUdpMessage(generatedConfirmMsg);
+    // Sestavíme buffer pro odeslání
+    std::vector<uint8_t> buffer = packUdpMessage(responseMsg);
+
+    // Odeslání zprávy CONFIRM
     ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
                                (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     if (sentBytes < 0) {
@@ -346,12 +402,47 @@ void UdpChatClient::processConfirmMessage(const UdpMessage& confirmMsg) {
         std::cout << "UDP CONFIRM zpráva odeslána." << std::endl;
     }
 
- 
+    // Pokračuj s autentifikací, pokud je to nutné
     if (displayName.empty()) {
-        std::cout << "ERROR: Nejprve se musíte autentizovat (/auth)." << std::endl;
+        std::cout << "ERROR: Nejprve se musíte autentifikovat (/auth)." << std::endl;
     } else {
         std::cout << "Autentizace úspěšná. Připojuji se k výchozímu kanálu..." << std::endl;
-        handleJoinCommand("/join default");
+      
+        // Můžeme zde přidat kód pro připojení k výchozímu kanálu, pokud je to potřeba
     }
 }
 
+void UdpChatClient::sendPingMessage() {
+    UdpMessage pingMsg;
+    pingMsg.type = UdpMessageType::PING;
+    pingMsg.messageId = nextMessageId++;
+    pingMsg.payload.clear(); // PING zpráva neobsahuje žádné další data.
+
+    std::vector<uint8_t> buffer = packUdpMessage(pingMsg);
+    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0, 
+                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+    if (sentBytes < 0) {
+        perror("ERROR: Odeslání UDP PING zprávy selhalo");
+    } else {
+        std::cout << "UDP PING zpráva odeslána." << std::endl;
+    }
+}
+void UdpChatClient::processPingMessage(const UdpMessage& pingMsg) {
+    (void)pingMsg; // Marking the parameter as unused
+
+    std::cout << "Obdržena PING zpráva od serveru." << std::endl;
+
+    UdpMessage confirmMsg;
+    confirmMsg.type = UdpMessageType::CONFIRM;
+    confirmMsg.messageId = nextMessageId++;
+    confirmMsg.payload.clear(); // Confirm může mít prázdný payload.
+
+    std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
+    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+    if (sentBytes < 0) {
+        perror("ERROR: Odeslání CONFIRM zprávy pro PING selhalo");
+    } else {
+        std::cout << "CONFIRM zpráva pro PING odeslána." << std::endl;
+    }
+}
