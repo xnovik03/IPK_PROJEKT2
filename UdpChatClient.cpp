@@ -8,7 +8,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <unordered_set>
-
+#include <algorithm>
 UdpChatClient::UdpChatClient(const std::string& server, int port)
     : serverAddress(server), serverPort(port), sockfd(-1),
       nextMessageId(0), displayName("") {
@@ -21,21 +21,18 @@ UdpChatClient::~UdpChatClient() {
 }
 
 bool UdpChatClient::bindSocket() {
-    // Vytvoření UDP socketu
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
         perror("ERROR: Nelze vytvořit UDP socket");
         return false;
     }
 
-    // Nastavení lokální adresy pro bind
     struct sockaddr_in localAddr;
     std::memset(&localAddr, 0, sizeof(localAddr));
     localAddr.sin_family = AF_INET;
     localAddr.sin_addr.s_addr = INADDR_ANY;
-    localAddr.sin_port = htons(0); // 0 = dynamicky přidělený port
+    localAddr.sin_port = htons(0);
 
-    // Bindování socketu
     if (bind(sockfd, (struct sockaddr*)&localAddr, sizeof(localAddr)) < 0) {
         perror("ERROR: Bind selhal");
         close(sockfd);
@@ -43,7 +40,6 @@ bool UdpChatClient::bindSocket() {
         return false;
     }
 
-    // Volitelně vypíšeme lokální port
     socklen_t len = sizeof(localAddr);
     if (getsockname(sockfd, (struct sockaddr*)&localAddr, &len) == 0) {
         std::cout << "UDP client používá lokální port: " << ntohs(localAddr.sin_port) << std::endl;
@@ -63,11 +59,9 @@ bool UdpChatClient::resolveServerAddr() {
 }
 
 bool UdpChatClient::connectToServer() {
-    // Vytvoříme a připojíme socket (bind)
     if (!bindSocket()) {
         return false;
     }
-    // Nastavíme serverovou adresu
     if (!resolveServerAddr()) {
         return false;
     }
@@ -80,96 +74,34 @@ void UdpChatClient::run() {
     std::cout << "UDP klient spuštěn. Zadejte příkaz: " << std::endl;
     std::string input;
     while (std::getline(std::cin, input)) {
-        if (input == "/quit") break;
+
+        if (input.empty()) continue;
 
         // Kontrola, zda se jedná o příkaz začínající lomítkem
-        if (!input.empty() && input[0] == '/') {
-         
-            if (input.rfind("/auth", 0) == 0) {
-                auto authOpt = InputHandler::parseAuthCommand(input);
-                if (authOpt) {
-                    
-                    this->displayName = authOpt->displayName;
-                    UdpMessage authMsg = buildAuthUdpMessage(*authOpt, nextMessageId++);
-                    std::vector<uint8_t> buffer = packUdpMessage(authMsg);
-                    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
-                                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-                    if (sentBytes < 0) {
-                        perror("ERROR: Odeslání UDP AUTH zprávy selhalo");
-                    } else {
-                        std::cout << "UDP AUTH zpráva odeslána." << std::endl;
-                    }
-                } else {
-                    std::cout << "Neplatný /auth příkaz. Správný formát: /auth {Username} {Secret} {DisplayName}" << std::endl;
-                }
-                continue;
-            }
-
-            // Zpracování /join příkazu
-            if (input.rfind("/join", 0) == 0) {
-                // Vstupní formát očekává: /join channelID
-                auto joinOpt = InputHandler::parseJoinCommand(input);
-                if (joinOpt) {
-                    if (displayName.empty()) {
-                        std::cout << "Nejprve se musíte autentizovat (/auth)." << std::endl;
-                        continue;
-                    }
-                    UdpMessage joinMsg = buildJoinUdpMessage(joinOpt.value(), displayName, nextMessageId++);
-                    std::vector<uint8_t> buffer = packUdpMessage(joinMsg);
-                    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
-                                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-                    if (sentBytes < 0) {
-                        perror("ERROR: Odeslání UDP JOIN zprávy selhalo");
-                    } else {
-                        std::cout << "UDP JOIN zpráva odeslána." << std::endl;
-                    }
-                } else {
-                    std::cout << "Neplatný /join příkaz. Správný formát: /join {ChannelID}" << std::endl;
-                }
-                continue;
-            }
-            // Přidání  příkazu /rename
-            if (input.rfind("/rename", 0) == 0) {
-              
-                std::string newDisplayName = input.substr(8);  
-                // Odstraníme mezery na začátku a konci
-                newDisplayName.erase(0, newDisplayName.find_first_not_of(" \t"));
-                newDisplayName.erase(newDisplayName.find_last_not_of(" \t") + 1);
-                if (newDisplayName.empty()) {
-                    std::cout << "Neplatný /rename příkaz: Display name nesmí být prázdný." << std::endl;
-                    continue;
-                }
-                // Aktualizace lokální proměnné displayName
-                displayName = newDisplayName;
-                std::cout << "Display name změněn na: " << displayName << std::endl;
-                continue;
-            }
-            if (input.rfind("/help", 0) == 0) {
-                printHelp();
-                continue;
+        if (input[0] == '/') {
+            handleCommand(input);  
+        } else {
+            sendMessage(input);  
         }
-}
-        else {
-           
-            if (displayName.empty()) {
-                std::cout << "Nejprve se musíte autentizovat (/auth) než odešlete zprávu." << std::endl;
-            } else {
-                UdpMessage msgMsg = buildMsgUdpMessage(displayName, input, nextMessageId++);
-                std::vector<uint8_t> buffer = packUdpMessage(msgMsg);
-                ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
-                                           (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-                if (sentBytes < 0) {
-                    perror("ERROR: Odeslání UDP MSG zprávy selhalo");
-                } else {
-                    std::cout << "UDP MSG zpráva odeslána." << std::endl;
-                }
-            }
-        }
-      
     }
 }
 
-// Definice funkce pro tisk nápovědy
+void UdpChatClient::handleCommand(const std::string& input) {
+    if (input == "/help") {
+        printHelp();  
+    } else if (input.rfind("/auth", 0) == 0) {
+        handleAuthCommand(input);  
+    } else if (displayName.empty()) {
+        std::cout << "ERROR: Nejprve se musíte autentizovat (/auth) než odešlete zprávu." << std::endl;
+    } else if (input.rfind("/join", 0) == 0) {
+        handleJoinCommand(input);  
+    } else if (input.rfind("/rename", 0) == 0) {
+        handleRenameCommand(input); 
+    } else {
+        std::cout << "ERROR: Neznámý příkaz: " << input << std::endl;
+    }
+}
+
 void UdpChatClient::printHelp() {
     std::cout << "Podporované příkazy:" << std::endl;
     std::cout << "  /auth {Username} {Secret} {DisplayName}  - Přihlášení uživatele" << std::endl;
@@ -177,47 +109,76 @@ void UdpChatClient::printHelp() {
     std::cout << "  /rename {DisplayName}                  - Změna zobrazovaného jména" << std::endl;
     std::cout << "  /help                                  - Zobrazení této nápovědy" << std::endl;
 }
-// Definice  funkce pro zpracování REPLY zprávy
-void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
-    if (replyMsg.payload.size() < 3) {
-        std::cerr << "REPLY zpráva je příliš krátká." << std::endl;
-        return;
-    }
 
-    uint8_t result = replyMsg.payload[0];
-    uint16_t refMessageId;
-    std::memcpy(&refMessageId, &replyMsg.payload[1], sizeof(uint16_t));
-    refMessageId = ntohs(refMessageId);
-
-    // Zbytek payloadu je textová zpráva, ukončená nulou.
-    std::string content;
-    if (replyMsg.payload.size() > 3) {
-        content = std::string(replyMsg.payload.begin() + 3, replyMsg.payload.end());
-        size_t pos = content.find('\0');
-        if (pos != std::string::npos) {
-            content = content.substr(0, pos);
+void UdpChatClient::handleAuthCommand(const std::string& input) {
+    auto authOpt = InputHandler::parseAuthCommand(input);
+    if (authOpt) {
+        this->displayName = authOpt->displayName;
+        UdpMessage authMsg = buildAuthUdpMessage(*authOpt, nextMessageId++);
+        std::vector<uint8_t> buffer = packUdpMessage(authMsg);
+        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        if (sentBytes < 0) {
+            perror("ERROR: Odeslání UDP AUTH zprávy selhalo");
+        } else {
+            std::cout << "UDP AUTH zpráva odeslána." << std::endl;
         }
-    }
-
-    if (result == 1) {
-        std::cout << "Action Success: " << content << std::endl;
     } else {
-        std::cout << "Action Failure: " << content << std::endl;
-    }
-
-    // Change the local variable name to avoid conflict
-    UdpMessage generatedReplyMsg = buildReplyUdpMessage("Odpověd' na vaši zprávu", nextMessageId++, refMessageId, 1);
-    std::vector<uint8_t> buffer = packUdpMessage(generatedReplyMsg);
-    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
-                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-    if (sentBytes < 0) {
-        perror("ERROR: Odeslání UDP REPLY zprávy selhalo");
-    } else {
-        std::cout << "UDP REPLY zpráva odeslána." << std::endl;
+        std::cout << "Neplatný /auth příkaz. Správný formát: /auth {Username} {Secret} {DisplayName}" << std::endl;
     }
 }
 
 
+
+
+void UdpChatClient::handleJoinCommand(const std::string& input) {
+    auto joinOpt = InputHandler::parseJoinCommand(input);
+    if (joinOpt) {
+        if (displayName.empty()) {
+            std::cout << "ERROR: Nejprve se musíte autentizovat (/auth)." << std::endl;
+            return;
+        }
+        UdpMessage joinMsg = buildJoinUdpMessage(joinOpt.value(), displayName, nextMessageId++);
+        std::vector<uint8_t> buffer = packUdpMessage(joinMsg);
+        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        if (sentBytes < 0) {
+            perror("ERROR: Odeslání UDP JOIN zprávy selhalo");
+        } else {
+            std::cout << "UDP JOIN zpráva odeslána." << std::endl;
+        }
+    } else {
+        std::cout << "ERROR:Neplatný /join příkaz. Správný formát: /join {ChannelID}" << std::endl;
+    }
+}
+
+void UdpChatClient::handleRenameCommand(const std::string& input) {
+    std::string newDisplayName = input.substr(8);
+    newDisplayName.erase(0, newDisplayName.find_first_not_of(" \t"));
+    newDisplayName.erase(newDisplayName.find_last_not_of(" \t") + 1);
+    if (newDisplayName.empty()) {
+        std::cout << "ERROR: Neplatný /rename příkaz: Display name nesmí být prázdný." << std::endl;
+        return;
+    }
+    displayName = newDisplayName;
+    std::cout << "Display name změněn na: " << displayName << std::endl;
+}
+
+void UdpChatClient::sendMessage(const std::string& message) {
+    if (displayName.empty()) {
+        std::cout << "ERROR: Nejprve se musíte autentizovat (/auth) než odešlete zprávu." << std::endl;
+    } else {
+        UdpMessage msgMsg = buildMsgUdpMessage(displayName, message, nextMessageId++);
+        std::vector<uint8_t> buffer = packUdpMessage(msgMsg);
+        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        if (sentBytes < 0) {
+            perror("ERROR: Odeslání UDP MSG zprávy selhalo");
+        } else {
+            std::cout << "UDP MSG zpráva odeslána." << std::endl;
+        }
+    }
+}
 void UdpChatClient::sendByeMessage() {
     if (!displayName.empty()) {
         UdpMessage byeMsg;
@@ -235,71 +196,50 @@ void UdpChatClient::sendByeMessage() {
         }
     }
 }
-// this function implementade with AI
+
 void UdpChatClient::receiveServerResponseUDP() {
-    while (true) {
-        uint8_t recvBuffer[1024];
-        struct sockaddr_in fromAddr;
-        socklen_t addrLen = sizeof(fromAddr);
-        ssize_t bytesReceived = recvfrom(sockfd, recvBuffer, sizeof(recvBuffer), 0,
-                                         (struct sockaddr*)&fromAddr, &addrLen);
-        if (bytesReceived <= 0)
-            break;
-        std::vector<uint8_t> data(recvBuffer, recvBuffer + bytesReceived);
-        UdpMessage receivedMsg;
-        if (unpackUdpMessage(data, receivedMsg)) {
-            if (confirmedMessageIds.find(receivedMsg.messageId) != confirmedMessageIds.end()) {
-                continue;
-            }
-            confirmedMessageIds.insert(receivedMsg.messageId);
-            if (receivedMsg.type == UdpMessageType::REPLY) {
+    uint8_t recvBuffer[1024];
+    struct sockaddr_in fromAddr;
+    socklen_t addrLen = sizeof(fromAddr);
+    ssize_t bytesReceived = recvfrom(sockfd, recvBuffer, sizeof(recvBuffer), 0,
+                                     (struct sockaddr*)&fromAddr, &addrLen);
+    if (bytesReceived <= 0) return;
+
+    std::vector<uint8_t> data(recvBuffer, recvBuffer + bytesReceived);
+    UdpMessage receivedMsg;
+    if (unpackUdpMessage(data, receivedMsg)) {
+        switch (receivedMsg.type) {
+            case UdpMessageType::REPLY:
                 processReplyMessage(receivedMsg);
-            } else if (receivedMsg.type == UdpMessageType::ERR) {
+                break;
+
+            case UdpMessageType::CONFIRM:
+                processConfirmMessage(receivedMsg);
+                break;
+
+            case UdpMessageType::MSG:
+                processMsgMessage(receivedMsg);
+                break;
+
+            case UdpMessageType::ERR:
                 processErrMessage(receivedMsg);
-            } else if (receivedMsg.type == UdpMessageType::PING) {
-                UdpMessage confirmMsg = buildConfirmUdpMessage(receivedMsg.messageId);
-                std::vector<uint8_t> confirmBuffer = packUdpMessage(confirmMsg);
-                ssize_t sentBytes = sendto(sockfd, confirmBuffer.data(), confirmBuffer.size(), 0,
-                                           (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-                if (sentBytes < 0)
-                    perror("ERROR: Odeslání CONFIRM pro PING selhalo");
-                else
-                    std::cout << "CONFIRM pro PING odeslán (MessageID " << receivedMsg.messageId << ")" << std::endl;
-            } else if (receivedMsg.type == UdpMessageType::BYE) {
-                std::string byeSender;
-                if (!receivedMsg.payload.empty()) {
-                    byeSender = std::string(receivedMsg.payload.begin(), receivedMsg.payload.end());
-                    size_t pos = byeSender.find('\0');
-                    if (pos != std::string::npos)
-                        byeSender = byeSender.substr(0, pos);
-                }
-                std::cout << "Server (" << byeSender << ") ukončuje spojení (BYE obdrženo)." << std::endl;
-                break;  
-            } else if (receivedMsg.type == UdpMessageType::MSG) {
-             
-                std::string fullPayload(receivedMsg.payload.begin(), receivedMsg.payload.end());
-                size_t delimPos = fullPayload.find('\0');
-                if (delimPos != std::string::npos) {
-                    std::string sender = fullPayload.substr(0, delimPos);
-                    std::string messageContent = fullPayload.substr(delimPos + 1);
-                    size_t termPos = messageContent.find('\0');
-                    if (termPos != std::string::npos)
-                        messageContent = messageContent.substr(0, termPos);
-                    std::cout << sender << ": " << messageContent << std::endl;
-                } else {
-                    std::cout << "Neplatný MSG payload." << std::endl;
-                }
-            }
+                break;
+
+            default:
+                std::cerr << "ERROR: Neznámý typ zprávy: " << static_cast<int>(receivedMsg.type) << std::endl;
+                break;
         }
     }
 }
+
+
 void UdpChatClient::processErrMessage(const UdpMessage& errMsg) {
     // Check if the payload has at least 1 byte
     if (errMsg.payload.size() < 1) {
         std::cerr << "ERR message is empty." << std::endl;
         return;
     }
-
+    
     // Convert the payload to a string (error message)
     std::string errorContent(errMsg.payload.begin(), errMsg.payload.end());
     // Remove any null terminators at the end
@@ -314,3 +254,104 @@ void UdpChatClient::processErrMessage(const UdpMessage& errMsg) {
     // Handle the error (you may want to exit or handle gracefully)
     exit(EXIT_FAILURE);
 }
+void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
+    if (replyMsg.payload.size() < 3) {
+        std::cerr << "ERROR:REPLY zpráva je příliš krátká." << std::endl;
+        return;
+    }
+
+    uint8_t result = replyMsg.payload[0];  // Výsledek akce: 1 pro OK, 0 pro NOK
+    uint16_t refMessageId;
+    std::memcpy(&refMessageId, &replyMsg.payload[1], sizeof(uint16_t));
+    refMessageId = ntohs(refMessageId);  // Získáme MessageID
+
+    // Zbytek payloadu je textová zpráva, ukončená nulou
+    std::string content;
+    if (replyMsg.payload.size() > 3) {
+        content = std::string(replyMsg.payload.begin() + 3, replyMsg.payload.end());
+        size_t pos = content.find('\0');
+        if (pos != std::string::npos) {
+            content = content.substr(0, pos);
+        }
+    }
+
+    // Výsledek (OK nebo NOK)
+    std::string status = content.substr(0, 2); // "OK" nebo "NOK"
+    std::string msg = content.substr(3);       // Text zprávy (což je vše za "OK"/"NOK")
+
+    if (status == "OK") {
+        std::cout << "Action Success: " << msg << std::endl;
+
+        // Po úspěšném REPLY se automaticky připojíme k výchozímu kanálu
+        std::cout << "Autentizace úspěšná. Připojuji se k výchozímu kanálu..." << std::endl;
+        handleJoinCommand("/join default");  
+    } else if (status == "NOK") {
+        std::cout << "Action Failure: " << msg << std::endl;
+    } else {
+        std::cout << "ERROR: Unknown REPLY status: " << content << std::endl;
+    }
+
+    // Odpovědní zpráva pro REPLY s MessageID z předchozího příkazu
+    UdpMessage generatedReplyMsg = buildReplyUdpMessage("Odpověd' na vaši zprávu", nextMessageId++, refMessageId, 1);
+    std::vector<uint8_t> buffer = packUdpMessage(generatedReplyMsg);
+    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+    if (sentBytes < 0) {
+        perror("ERROR: Odeslání UDP REPLY zprávy selhalo");
+    } else {
+        std::cout << "UDP REPLY zpráva odeslána." << std::endl;
+    }
+}
+
+void UdpChatClient::processMsgMessage(const UdpMessage& msgMsg) {
+      if (displayName.empty()) {
+        std::cout << "ERROR: Nejprve se musíte autentifikovat (/auth) než odešlete zprávu." << std::endl;
+        return; 
+    }
+    if (msgMsg.payload.size() > 0) {
+        std::string message(msgMsg.payload.begin(), msgMsg.payload.end());
+        std::cout << "Server: " << message << std::endl;
+
+        // Potvrzení připojení k výchozímu kanálu
+        UdpMessage confirmMsg;
+        confirmMsg.type = UdpMessageType::CONFIRM;
+        confirmMsg.messageId = nextMessageId++;   
+        confirmMsg.payload.clear();  // Můžeme vyčistit payload, pokud není potřeba
+        std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
+        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        if (sentBytes < 0) {
+            perror("ERROR: Odeslání UDP CONFIRM zprávy selhalo");
+        } else {
+            std::cout << "UDP CONFIRM zpráva odeslána." << std::endl;
+        }
+    }
+}
+
+void UdpChatClient::processConfirmMessage(const UdpMessage& confirmMsg) {
+    std::cout << "Obdržena CONFIRM zpráva od serveru." << std::endl;
+
+    // Vytvoření odpovědi pro CONFIRM a odeslání zpět serveru
+    UdpMessage generatedConfirmMsg;
+    generatedConfirmMsg.type = UdpMessageType::CONFIRM;
+    generatedConfirmMsg.messageId = nextMessageId++;
+    generatedConfirmMsg.payload.clear();  
+
+    std::vector<uint8_t> buffer = packUdpMessage(generatedConfirmMsg);
+    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+    if (sentBytes < 0) {
+        perror("ERROR: Odeslání UDP CONFIRM zprávy selhalo");
+    } else {
+        std::cout << "UDP CONFIRM zpráva odeslána." << std::endl;
+    }
+
+ 
+    if (displayName.empty()) {
+        std::cout << "ERROR: Nejprve se musíte autentizovat (/auth)." << std::endl;
+    } else {
+        std::cout << "Autentizace úspěšná. Připojuji se k výchozímu kanálu..." << std::endl;
+        handleJoinCommand("/join default");
+    }
+}
+
