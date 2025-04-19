@@ -15,7 +15,7 @@
 #include <netinet/in.h>
 #include <sstream>   // pro istringstream
 #include <cstdlib>   // pro std::exit
-
+#include <algorithm>
 TcpChatClient::TcpChatClient(const std::string& host, int port)
     : server(host), port(port), sockfd(-1) {}
 
@@ -94,6 +94,7 @@ Message TcpChatClient::parseMessage(const std::string& buffer) {
 
 
 // this function implementation with AI
+
 void TcpChatClient::receiveServerResponse() {
     char buffer[2048];
     std::string leftover;
@@ -104,49 +105,50 @@ void TcpChatClient::receiveServerResponse() {
 
         leftover.append(buffer, n);
 
-        // Zpracujeme všechny kompletní řádky ukončené "\r\n"
         size_t pos;
         while ((pos = leftover.find("\r\n")) != std::string::npos) {
             std::string line = leftover.substr(0, pos);
             leftover.erase(0, pos + 2);
 
+            // Pokud je zpráva neplatná 
+            if (line.rfind("AUTH", 0) != 0 && line.rfind("JOIN", 0) != 0 && 
+                line.rfind("REPLY", 0) != 0 && line.rfind("MSG", 0) != 0 &&
+                line.rfind("ERR", 0) != 0 && line.rfind("BYE", 0) != 0) {
+                processInvalidMessage(line);
+                continue;
+            }
+
+            // Ostatní zpracování zpráv
             if (line.rfind("ERR", 0) == 0) {
-                // ERR → pouze chybová zpráva
-                std::string msg = line.substr(4);  // přeskočíme "ERR "
-                std::cerr << "ERROR FROM SERVER: " << msg << "\n";
+                std::string msg = line.substr(4);  // Skip "ERR "
+                std::cerr << "ERROR FROM SERVER: " << msg << "\n"; 
                 std::exit(1);
             }
+
+            // Handle other messages (BYE, REPLY, etc.)
             else if (line.rfind("BYE", 0) == 0) {
-                // BYE → rovnou ukončíme
-                std::exit(0);
+                std::exit(0);  
             }
             else if (line.rfind("REPLY", 0) == 0) {
-                // REPLY → necháme stávající zpracování
                 Message reply = Message::fromBuffer(line + "\r\n");
                 process_reply(reply);
             }
             else if (line.rfind("MSG", 0) == 0) {
-                // MSG FROM <sender> IS <content>
-                // Rozparsujeme manuálně:
-                //   formát: "MSG FROM <sender> IS <text>"
                 std::istringstream iss(line);
                 std::string tag, from, sender, is;
                 iss >> tag >> from >> sender >> is;
                 std::string content;
                 std::getline(iss, content);
-                if (!content.empty() && content.front() == ' ')
-                    content.erase(0,1);
+                if (!content.empty() && content.front() == ' ') content.erase(0, 1);
                 std::cout << sender << ": " << content << "\n";
             }
         }
     }
 }
 
-
-
 void TcpChatClient::run() {
     std::string line;
-
+    std::string messageToSend;
     // Spustíme vlákno pro příjem zpráv
     std::thread receiverThread(&TcpChatClient::receiveServerResponse, this);
 
@@ -224,8 +226,7 @@ void TcpChatClient::sendByeMessage() {
     }
 }
 
-void TcpChatClient::process_reply(const Message& reply)
-{
+void TcpChatClient::process_reply(const Message& reply) {
     if (reply.getType() == Message::REPLY) {
         std::string content = reply.getContent(); 
         auto pos = content.find(' ');
@@ -239,9 +240,14 @@ void TcpChatClient::process_reply(const Message& reply)
         if (status == "OK") {
             std::cout << "Action Success: " << msg << std::endl;
         } else if (status == "NOK") {
-            std::cout << "Action Failure: " << msg << std::endl;
+            std::cout << "Action Failure: " << msg << std::endl;  
         } else {
-            std::cout << "Unknown REPLY status: " << content << std::endl;
+            std::cerr << "ERROR: "Unknown REPLY status:  " << status << std::endl;  
         }
     }
+}
+void TcpChatClient::processInvalidMessage(const std::string& invalidMessage) {
+    std::cerr << "ERROR: Invalid message received: " << invalidMessage << std::endl;
+    std::string errorMessage = "ERR FROM " + displayName + " IS " + invalidMessage + "\r\n";
+    send(sockfd, errorMessage.c_str(), errorMessage.size(), 0);
 }
