@@ -299,8 +299,11 @@ void UdpChatClient::processErrMessage(const UdpMessage& errMsg) {
     // Send dynamic CONFIRM message with the actual message ID
     UdpMessage confirmMsg;
     confirmMsg.type = UdpMessageType::CONFIRM;
-    confirmMsg.messageId = errMsg.messageId;  // Use the received message ID for confirmation
-    confirmMsg.payload.clear();  // You can choose to send additional payload here if necessary
+    confirmMsg.messageId = 0;  
+    confirmMsg.payload.resize(sizeof(uint16_t));
+    uint16_t netRefId = htons(errMsg.messageId);
+    std::memcpy(confirmMsg.payload.data(), &netRefId, sizeof(uint16_t));
+
 
     std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
     ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
