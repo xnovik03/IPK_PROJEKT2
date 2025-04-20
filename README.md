@@ -75,7 +75,7 @@ UDP (User Datagram Protocol) je jeden ze sady protokolů internetu. O protokolu 
 ---
 
 ##  UML diagramy
-![](images/diagram.png)
+![](diagram.png)
 
 
 
