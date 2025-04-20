@@ -8,11 +8,9 @@
     - [Úvod do TCP a UDP](#úvod-do-tcp-a-udp)
     - [TCP](#tcp)
     - [UDP](#udp)
-2.  -[UML diagramy](#uml-diagramy)
-    - [ Struktura aplikace](# Struktura-aplikace)
-    
+2.  [UML diagramy](#uml-diagramy)
+    - [ Struktura aplikace](# struktura-aplikace)
 3. [Testování](#testování)
- 
 4. [Zdroje a použitá literatura](#zdroje-a-použitá-literatura)
 
 ---
@@ -125,31 +123,39 @@ Kroky testování:
 
 1.Testování s Netcat serverem: Pro testování komunikace mezi klientem a serverem byl na serveru spuštěn Netcat (nc), který poslouchal na portu 4567. Tento server reagoval na příkazy od klienta, jako jsou /auth, /join, /msg, a /bye.
 
-2. Použití testů: K ověření správnosti implementace byly využity automatizované testy. Testy jsou k dispozici na GitHubu:https://github.com/Vlad6422/VUT_IPK_CLIENT_TESTS.git (nejsem autor).  Testy byly prováděny postupně, tedy každý test byl spuštěn jednotlivě. Po spuštění každého testu byla komunikace sledována v aplikaci Wireshark, kde byl použit plugin ipk25Chat pro analýzu UDP a TCP paketů
+2. Použití testů: K ověření správnosti implementace byly využity automatizované testy. Testy jsou k dispozici na GitHubu: https://github.com/Vlad6422/VUT_IPK_CLIENT_TESTS.git (nejsem autor).  
+Testy byly prováděny postupně, tedy každý test byl spuštěn jednotlivě. Po spuštění každého testu byla komunikace sledována v aplikaci Wireshark, kde byl použit plugin ipk25Chat pro analýzu UDP a TCP paketů
+
 Např. test: tcp_auth_nok_ok
 
-![](test.jpg)
+![](test1.jpg)
 
 
 
 
 ## Zdroje a použitá literatura
 
-https://linux.die.net/man/3/inet_pton
+- https://beej.us/guide/bgnet/html/split/client-server-background.html#a-simple-stream-client (Použit pro implementaci funkce connectToServer() v TCP )
+
+- https://linux.die.net/man/3/inet_pton (Použití pro konverzi adresy: Funkce inet_pton() byla použita pro převod textového formátu IP adresy serveru na síťový formát, což je nezbytné pro správné přiřazení IP adresy do struktury sockaddr_in v TCP a UDP komunikaci.)
 
 
- https://www.geeksforgeeks.org/udp-server-client-implementation-c/
+- https://www.geeksforgeeks.org/udp-server-client-implementation-c/ (Použití pro UDP komunikaci: Tento článek byl použit pro pochopení implementace základní UDP server-klient komunikace, která byla následně implementována pro odesílání a příjem UDP zpráv mezi klientem a serverem, včetně funkcí sendto() a recvfrom())
 
 
- https://beej.us/guide/bgnet/html/#two-types-of-internet-sockets
+- https://beej.us/guide/bgnet/html/#two-types-of-internet-sockets (Použití pro pochopení typů socketů: Tento odkaz poskytl informace o dvou hlavních typech internetových socketů, které byly aplikovány při rozhodování o využití TCP a UDP soketů ve vývoji klienta a serveru.)
 
- 
-  https://beej.us/guide/bgnet/html/split/client-server-background.html#a-simple-stream-client
 
-  https://www.kiv.zcu.cz/~txkoutny/download/javanet.pdf (pro dokumentaciju teorija )
+- https://www.kiv.zcu.cz/~txkoutny/download/javanet.pdf (byly využity pro teorie v dokumentaci )
 
-  https://tsplus.net/cs/remote-access/blog/rdp-network-ports-tcp-vs-udp (pro dokumentaciju teorija )
-  https://cs.wikipedia.org/wiki/User_Datagram_Protocol (pro dokumentaciju teorija )
-  https://www.geeksforgeeks.org/udp-server-client-implementation-c/ (pro dokumentaciju teorija )
 
-  https://www.planttext.com/ (pro generaciju uml diagramu)
+- https://tsplus.net/cs/remote-access/blog/rdp-network-ports-tcp-vs-udp (byly využity pro teorie v dokumentaci  )
+
+
+- https://cs.wikipedia.org/wiki/User_Datagram_Protocol (byly využity pro teorie v dokumentaci  )
+
+
+  https://www.geeksforgeeks.org/udp-server-client-implementation-c/ (byly využity pro teorie v dokumentaci  )
+  
+
+- https://www.planttext.com/ (byly využity pro teorie v dokumentaci )
