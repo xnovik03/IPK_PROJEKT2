@@ -137,6 +137,10 @@ void UdpChatClient::printHelp() {
 // Handle the authentication command (/auth)
 // This function parses the input, validates it, and sends the authentication message to the server
 void UdpChatClient::handleAuthCommand(const std::string& input) {
+     if (!displayName.empty()) {
+        std::cout << "ERROR: You are already authenticated!" << std::endl;
+        return;  // Do not authenticate again
+    }
     auto authOpt = InputHandler::parseAuthCommand(input);  // Parse the /auth command
     if (authOpt) {
         this->displayName = authOpt->displayName;  // Set the display name after successful authentication
