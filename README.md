@@ -9,7 +9,7 @@
     - [TCP](#tcp)
     - [UDP](#udp)
 2.  [UML diagramy](#uml-diagramy)
-    - [Struktura aplikace](# struktura-aplikace)
+  - [Struktura aplikace](#udp)
 3. [Testování](#testování)
 4. [Zdroje a použitá literatura](#zdroje-a-použitá-literatura)
 
@@ -121,9 +121,10 @@ spuštění hlavní smyčky klienta voláním run().
  Pro testování klienta byl využit jednoduchý server, který byl vytvořen pomocí nástroje nc (Netcat). Tento server přijímal a odesílal zprávy dle specifikovaných protokolů a reagoval na příkazy od klienta.
 Kroky testování:
 
-1.Testování s Netcat serverem: Pro testování komunikace mezi klientem a serverem byl na serveru spuštěn Netcat (nc), který poslouchal na portu 4567. Tento server reagoval na příkazy od klienta, jako jsou /auth, /join, /msg, a /bye.
+1. Testování s Netcat serverem: Pro testování komunikace mezi klientem a serverem byl na serveru spuštěn Netcat (nc), který poslouchal na portu 4567. Tento server reagoval na příkazy od klienta, jako jsou /auth, /join, /msg, a bye(Ctrl + C).
 
-2. Použití testů: K ověření správnosti implementace byly využity automatizované testy. Testy jsou k dispozici na GitHubu: https://github.com/Vlad6422/VUT_IPK_CLIENT_TESTS.git (nejsem autor).  
+2. Použití testů: K ověření správnosti implementace byly využity automatizované testy. Testy jsou k dispozici na 
+GitHubu: https://github.com/Vlad6422/VUT_IPK_CLIENT_TESTS.git (nejsem autor).  
 Testy byly prováděny postupně, tedy každý test byl spuštěn jednotlivě. Po spuštění každého testu byla komunikace sledována v aplikaci Wireshark, kde byl použit plugin ipk25Chat pro analýzu UDP a TCP paketů
 
 Např. test: tcp_auth_nok_ok
