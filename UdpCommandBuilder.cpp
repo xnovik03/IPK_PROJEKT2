@@ -69,16 +69,14 @@ UdpMessage buildMsgUdpMessage(const std::string& displayName, const std::string&
     msg.payload = payload;
     return msg;
 }
-UdpMessage buildConfirmUdpMessage(uint16_t refMessageId) {
+UdpMessage buildConfirmUdpMessage(uint16_t /*refMessageId*/) {
     UdpMessage msg;
-    msg.type = UdpMessageType::CONFIRM;  
-    msg.messageId = 0; // Typically, the confirmation message has a message ID of 0
-    uint16_t netRefId = htons(refMessageId);
-    msg.payload.resize(sizeof(uint16_t));
-    std::memcpy(msg.payload.data(), &netRefId, sizeof(uint16_t));
-    
+    msg.type = UdpMessageType::CONFIRM;
+    msg.messageId = 0;
+    msg.payload.clear(); 
     return msg;
 }
+
 UdpMessage buildReplyUdpMessage(const std::string& messageContent, uint16_t messageId, uint16_t refMessageId, uint8_t result) {
     UdpMessage msg;
     msg.type = UdpMessageType::REPLY;
