@@ -361,7 +361,6 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
     }
 
     uint8_t result = replyMsg.payload[0];  // Result: 1 for success, 0 for failure
-    uint16_t refMessageId = ntohs(*(uint16_t*)&replyMsg.payload[1]);  // Reference message ID
     std::string content(replyMsg.payload.begin() + 3, replyMsg.payload.end());  // Message content
 
     // Handle success or failure based on the result
