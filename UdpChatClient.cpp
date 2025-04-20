@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <unordered_set>
 #include <algorithm>
+#include "debug.h"
 
 // Constructor for initializing the UDP client with the server address and port
 // It also initializes the sockfd to -1, nextMessageId to 0, and displayName to an empty string
@@ -49,8 +50,8 @@ bool UdpChatClient::bindSocket() {
 
     socklen_t len = sizeof(localAddr);
     if (getsockname(sockfd, (struct sockaddr*)&localAddr, &len) == 0) {
-        std::cout << "UDP client is using local port: " << ntohs(localAddr.sin_port) << std::endl;  // Print the assigned local port
-    }
+       printf_debug("UDP client is using local port: %d", ntohs(localAddr.sin_port));
+     }
     return true;
 }
 
@@ -78,7 +79,7 @@ bool UdpChatClient::connectToServer() {
     if (!resolveServerAddr()) {  // Attempt to resolve the server address
         return false;
     }
-    std::cout << "UDP client ready to send messages to " << serverAddress 
+    std::cerr << "UDP client ready to send messages to " << serverAddress 
               << ":" << serverPort << std::endl;  // Print confirmation of the connection
     return true;
 }
@@ -86,7 +87,7 @@ bool UdpChatClient::connectToServer() {
 // Main loop for handling user input and processing server responses
 // This is where the client waits for input, processes commands, and sends messages
 void UdpChatClient::run() {
-    std::cout << "UDP client started. Enter a command: " << std::endl;
+    std::cerr << "UDP client started. Enter a command: " << std::endl;
     std::string input;
     while (std::getline(std::cin, input)) {  // Read user input
 
@@ -118,7 +119,7 @@ void UdpChatClient::handleCommand(const std::string& input) {
     } else if (input.rfind("/rename", 0) == 0) {
         handleRenameCommand(input); // Handle rename display name command
     } else {
-        std::cout << "ERROR: Unknown command: " << input << std::endl;  // Show error for unknown commands
+        std::cerr << "ERROR: Unknown command: " << input << std::endl;  // Show error for unknown commands
     }
 }
 
@@ -147,14 +148,14 @@ void UdpChatClient::handleAuthCommand(const std::string& input) {
         if (sentBytes < 0) {
             perror("ERROR: Sending UDP AUTH message failed");
         } else {
-            std::cout << "UDP AUTH message sent." << std::endl;
+             printf_debug("UDP AUTH message sent.");
         }
         
         // Wait for the server's REPLY response
         receiveServerResponseUDP();  // This function waits and processes the server's reply
     } else {
-        std::cout << "Invalid /auth command. Correct format: /auth {Username} {Secret} {DisplayName}" << std::endl;
-    }
+          printf_debug("Invalid /auth command. Correct format: /auth {Username} {Secret} {DisplayName}");
+     }
 }
 
 // Handle the join command (/join)
@@ -175,10 +176,10 @@ void UdpChatClient::handleJoinCommand(const std::string& input) {
         if (sentBytes < 0) {
             perror("ERROR: Sending UDP JOIN message failed");
         } else {
-            std::cout << "UDP JOIN message sent." << std::endl;
+             printf_debug("UDP JOIN message sent.");
         }
     } else {
-        std::cout << "ERROR: Invalid /join command. Correct format: /join {ChannelID}" << std::endl;
+          printf_debug("ERROR: Invalid /join command. Correct format: /join {ChannelID}");
     }
 }
 
@@ -190,7 +191,7 @@ void UdpChatClient::handleRenameCommand(const std::string& input) {
     newDisplayName.erase(newDisplayName.find_last_not_of(" \t") + 1);  // Trim trailing whitespace
 
     if (newDisplayName.empty()) {
-        std::cout << "ERROR: Invalid /rename command: Display name cannot be empty." << std::endl;
+         printf_debug("ERROR: Invalid /rename command: Display name cannot be empty.");
         return;
     }
 
@@ -200,8 +201,8 @@ void UdpChatClient::handleRenameCommand(const std::string& input) {
     }
 
     displayName = newDisplayName;  // Update the display name
-    std::cout << "Display name changed to: " << displayName << std::endl;
-    std::cout << "[DEBUG] New displayName set: " << displayName << std::endl;  // Debugging output
+    std::cerr << "Display name changed to: " << displayName << std::endl;
+    std::cerr << "[DEBUG] New displayName set: " << displayName << std::endl;  // Debugging output
 }
 
 // Send a message to the server
@@ -210,7 +211,7 @@ void UdpChatClient::sendMessage(const std::string& message) {
     if (displayName.empty()) {  // Check if the user is authenticated
         std::cout << "ERROR: You must authenticate first (/auth) before sending a message." << std::endl;
     } else {
-        std::cout << "[DEBUG] Sending message as: " << displayName << std::endl;  // Debugging output
+        std::cerr << "[DEBUG] Sending message as: " << displayName << std::endl;  // Debugging output
 
         // Build the message and send it to the server
         UdpMessage msgMsg = buildMsgUdpMessage(displayName, message, nextMessageId++);
@@ -220,7 +221,7 @@ void UdpChatClient::sendMessage(const std::string& message) {
         if (sentBytes < 0) {
             perror("ERROR: Sending UDP MSG message failed");
         } else {
-            std::cout << "UDP MSG message sent." << std::endl;
+            std::cerr << "UDP MSG message sent." << std::endl;
         }
     }
 }
@@ -234,13 +235,13 @@ void UdpChatClient::sendByeMessage() {
         byeMsg.messageId = nextMessageId++;  // Assign a unique message ID
         byeMsg.payload = packString(displayName);  // Pack the display name as the payload
         std::vector<uint8_t> buffer = packUdpMessage(byeMsg);
-        std::cout << "DEBUG: Sending BYE message with MessageID " << byeMsg.messageId << ", payload size = " << byeMsg.payload.size() << std::endl;
+        std::cerr << "DEBUG: Sending BYE message with MessageID " << byeMsg.messageId << ", payload size = " << byeMsg.payload.size() << std::endl;
         ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0, 
                                    (struct sockaddr*)&serverAddr, sizeof(serverAddr));
         if (sentBytes < 0) {
             perror("ERROR: Sending UDP BYE message failed");
         } else {
-            std::cout << "UDP BYE message sent." << std::endl;
+            std::cerr << "UDP BYE message sent." << std::endl;
         }
     }
 }
@@ -340,7 +341,7 @@ void UdpChatClient::processErrMessage(const UdpMessage& errMsg) {
     if (sentBytes < 0) {
         perror("ERROR: Sending UDP CONFIRM message failed");
     } else {
-        std::cout << "UDP CONFIRM message sent." << std::endl;
+        std::cerr << "UDP CONFIRM message sent." << std::endl;
     }
 
     // Exit the application after processing the error
@@ -364,7 +365,7 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
         std::cout << "Action Success: " << content << std::endl;
 
         if (content == "Joined default.") {
-            std::cout << "Authentication successful. Joining default channel..." << std::endl;
+            std::cerr << "Authentication successful. Joining default channel..." << std::endl;
         }
     } else {
         std::cout << "Action Failure: " << content << std::endl;
@@ -372,16 +373,16 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
     }
 
     // Debugging: Print the message ID and prepare the CONFIRM message
-    std::cout << "[DEBUG] Sending CONFIRM for REPLY (messageId: " << replyMsg.messageId << ")" << std::endl;
+    std::cerr << "[DEBUG] Sending CONFIRM for REPLY (messageId: " << replyMsg.messageId << ")" << std::endl;
 
     UdpMessage confirmMsg = buildConfirmUdpMessage(replyMsg.messageId);
     std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
 
-    std::cout << "[DEBUG] Confirm message content (hex): ";
+    std::cerr << "[DEBUG] Confirm message content (hex): ";
     for (auto byte : buffer) {
-        std::cout << std::hex << std::uppercase << (int)byte << " ";  // Print in hexadecimal
+        std::cerr << std::hex << std::uppercase << (int)byte << " ";  // Print in hexadecimal
     }
-    std::cout << std::dec << std::endl;  // Switch back to decimal output
+    std::cerr << std::dec << std::endl;  // Switch back to decimal output
 
     sendto(sockfd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
 }
@@ -390,10 +391,10 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
 void UdpChatClient::processMsgMessage(const UdpMessage& msgMsg) {
     if (msgMsg.payload.size() > 0) {
         std::string message(msgMsg.payload.begin(), msgMsg.payload.end());
-        std::cout << "[DEBUG] Received MSG message: " << message << std::endl;
+        std::cerr << "[DEBUG] Received MSG message: " << message << std::endl;
 
         if (message == "Joined default.") {
-            std::cout << "Authentication successful. Joining default channel..." << std::endl;
+            std::cerr << "Authentication successful. Joining default channel..." << std::endl;
         }
 
         // Prepare the CONFIRM message and send it back
@@ -406,14 +407,14 @@ void UdpChatClient::processMsgMessage(const UdpMessage& msgMsg) {
         if (sentBytes < 0) {
             perror("ERROR: Sending UDP CONFIRM message failed");
         } else {
-            std::cout << "UDP CONFIRM message sent." << std::endl;
+            std::cerr << "UDP CONFIRM message sent." << std::endl;
         }
     }
 }
 
 // Process the CONFIRM message received from the server
 void UdpChatClient::processConfirmMessage(const UdpMessage& confirmMsg) {
-    std::cout << "Received CONFIRM message from server (RefID: " << confirmMsg.messageId << ")." << std::endl;
+    std::cerr << "Received CONFIRM message from server (RefID: " << confirmMsg.messageId << ")." << std::endl;
 }
 
 // Send a PING message to the server
@@ -429,14 +430,14 @@ void UdpChatClient::sendPingMessage() {
     if (sentBytes < 0) {
         perror("ERROR: Sending UDP PING message failed");
     } else {
-        std::cout << "UDP PING message sent." << std::endl;
+        std::cerr << "UDP PING message sent." << std::endl;
     }
 }
 
 // Process the PING message received from the server
 void UdpChatClient::processPingMessage(const UdpMessage& pingMsg) {
     (void)pingMsg; // Marking the parameter as unused
-    std::cout << "Received PING message from server." << std::endl;
+    std::cerr << "Received PING message from server." << std::endl;
 
     UdpMessage confirmMsg;
     confirmMsg.type = UdpMessageType::CONFIRM;  // Set message type to CONFIRM
@@ -449,6 +450,6 @@ void UdpChatClient::processPingMessage(const UdpMessage& pingMsg) {
     if (sentBytes < 0) {
         perror("ERROR: Sending CONFIRM message for PING failed");
     } else {
-        std::cout << "CONFIRM message for PING sent." << std::endl;
+        std::cerr << "CONFIRM message for PING sent." << std::endl;
     }
 }

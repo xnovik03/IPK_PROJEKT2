@@ -82,13 +82,13 @@ bool UdpReliableTransport::sendMessageWithConfirm(const std::vector<uint8_t>& bu
         } else {
             // Retry sending
             pendingMessages[messageId].retransmissionCount++;
-            std::cout << "Timeout, opakuji odeslání zprávy s MessageID: " << messageId
+            std::cerr << "Timeout, opakuji odeslání zprávy s MessageID: " << messageId
                       << " (pokus " << (int)pendingMessages[messageId].retransmissionCount << ")" << std::endl;
         }
     }
 
     // Max retries reached, confirmation not received
-    std::cout << "Zpráva s MessageID: " << messageId << " nebyla potvrzena po " << maxRetries << " pokusech." << std::endl;
+    std::cerr << "Zpráva s MessageID: " << messageId << " nebyla potvrzena po " << maxRetries << " pokusech." << std::endl;
     pendingMessages.erase(messageId);
     return false;
 }
@@ -105,7 +105,7 @@ void UdpReliableTransport::processIncomingPacket(const std::vector<uint8_t>& buf
                
                 // Remove the message from pending list if confirmed
                 pendingMessages.erase(refId);
-                std::cout << "Obdrženo CONFIRM pro MessageID: " << refId << std::endl;
+                std::cerr << "Obdrženo CONFIRM pro MessageID: " << refId << std::endl;
             }
         } else {
             // Handle other message types if needed

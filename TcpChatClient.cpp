@@ -1,5 +1,6 @@
 #include "TcpChatClient.h"
 #include "InputHandler.h"
+#include "debug.h"
 #include <iostream>
 #include <string>
 #include <cstring>       // memset
@@ -77,13 +78,13 @@ bool TcpChatClient::connectToServer() {
     auto *ipv4 = reinterpret_cast<struct sockaddr_in*>(p->ai_addr);
     char ip4[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &ipv4->sin_addr, ip4, sizeof(ip4));
-    std::cout << "client: connecting to " << ip4 << std::endl;
+    std::cerr << "client: connecting to " << ip4 << std::endl;
 
     // Free the address info structure as we no longer need it
     freeaddrinfo(servinfo);
 
     // Print a success message
-    std::cout << "TCP client connected successfully.\n";
+  printf_debug("TCP client connected successfully.");
     return true;
 }
 
@@ -207,7 +208,7 @@ void TcpChatClient::run() {
                 // After successful authentication, set displayName and authenticated to true
                 displayName = cmd->displayName;
             } else {
-                std::cerr << "Invalid /auth command format.\n";
+                  printf_debug("Invalid /auth command format.");
                 continue;
             }
         }
@@ -223,7 +224,7 @@ void TcpChatClient::run() {
             if (cmd) {
                 messageToSend = "JOIN " + cmd.value() + " AS " + displayName + "\r\n";
             } else {
-                std::cerr << "Invalid /join command format.\n";
+                  printf_debug("Invalid /join command format.");
                 continue;
             }
         }
@@ -232,11 +233,12 @@ void TcpChatClient::run() {
         else if (line.rfind("/rename", 0) == 0) {
             std::string newDisplayName = line.substr(8);  // Trim the "/rename " part from the line
             if (newDisplayName.empty()) {
-                std::cerr << "Invalid /rename command format: Display name cannot be empty.\n";
+                printf_debug("Invalid /rename command format: Display name cannot be empty.");
+
                 continue;
             }
             displayName = newDisplayName;  // Change the display name
-            std::cout << "Display name changed to: " << displayName << std::endl;
+            printf_debug("Display name changed to: %s", displayName.c_str());
             continue;
         }
 
@@ -246,7 +248,7 @@ void TcpChatClient::run() {
         }
 
         // Send the message or command to the server
-        std::cout << "Sending: " << messageToSend << std::endl;
+        std::cerr << "Sending: " << messageToSend << std::endl;
         if (send(sockfd, messageToSend.c_str(), messageToSend.size(), 0) == -1) {
             std::perror("ERROR: send failed");  // If sending the message fails, print an error
             break;
@@ -270,7 +272,7 @@ void TcpChatClient::printHelp() {
 void TcpChatClient::sendByeMessage() {
     if (!displayName.empty()) {  // Check if the display name is set
         Message byeMessage = Message::createByeMessage(displayName);  // Create a BYE message
-        std::cout << "Sending BYE message: " << byeMessage.getContent() << "\r\n" << std::endl;  // Display the message content
+        std::cerr << "Sending BYE message: " << byeMessage.getContent() << "\r\n" << std::endl;  // Display the message content
         byeMessage.sendMessage(sockfd);  // Send the BYE message to the server
     }
 }
@@ -281,7 +283,7 @@ void TcpChatClient::process_reply(const Message& reply) {
         std::string content = reply.getContent();  // Extract the content of the reply
         auto pos = content.find(' ');  // Find the position of the first space (separating status from message)
         if (pos == std::string::npos) {  // If the space is not found, it's an invalid REPLY
-            std::cout << "Malformed REPLY: " << content << std::endl;
+            std::cerr << "Malformed REPLY: " << content << std::endl;
             return;
         }
         std::string status = content.substr(0, pos);  // Extract the status ("OK" or "NOK")
@@ -313,7 +315,7 @@ void TcpChatClient::processInvalidMessage(const std::string& invalidMessage) {
 void TcpChatClient::sendChannelJoinConfirmation() {
     // Create and send a confirmation message stating that the user joined the default channel
     std::string msg = "MSG FROM " + displayName + " IS " + displayName + " joined default.\r\n";
-    std::cout << "Sending: " << msg << std::endl;
+    printf_debug("Sending: %s", msg.c_str());
     if (send(sockfd, msg.c_str(), msg.size(), 0) == -1) {  // Send the confirmation message
         std::perror("ERROR: send failed");  // If sending fails, display an error
         std::exit(1);  // Exit the program if sending the message fails

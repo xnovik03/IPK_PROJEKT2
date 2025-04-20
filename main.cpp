@@ -14,9 +14,9 @@ ChatClient* globalClient = nullptr;
 // Signal handler to catch Ctrl+C (SIGINT) and send BYE message before exiting
 void signalHandler(int signal) {
     (void)signal; 
-    std::cout << "SIGINT received!" << std::endl;
+    std::cerr << "SIGINT received!" << std::endl;
     if (globalClient) {
-        std::cout << "Sending BYE message...\n";
+        std::cerr << "Sending BYE message...\n";
         globalClient->sendByeMessage();
     }
     std::exit(0);

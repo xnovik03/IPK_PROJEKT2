@@ -95,7 +95,7 @@ Message Message::fromBuffer(const std::string& rawBuffer)
 // Sends the message content to the server via socket
 void Message::sendMessage(int sockfd) const {
     std::string messageWithEnd = content + "\r\n";  
-    std::cout << "Sending message: " << messageWithEnd << std::endl;  // Debug output
+    std::cerr << "Sending message: " << messageWithEnd << std::endl;  // Debug output
     if (send(sockfd, messageWithEnd.c_str(), messageWithEnd.size(), 0) == -1) {
         std::perror("ERROR: send failed");
     }
