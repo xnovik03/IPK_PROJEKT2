@@ -9,9 +9,8 @@
     - [TCP](#tcp)
     - [UDP](#udp)
 2. [UML diagramy](#uml-diagramy)
-    - [Obecná struktura](#obecná-struktura)
-    - [Zprávy (Messages)](#zprávy-messages)
-    - [Hlavní smyčka](#hlavní-smyčka)
+    - [ Struktura aplikace](# Struktura-aplikace)
+    
 3. [Testování](#testování)
  
 4. [Zdroje a použitá literatura](#zdroje-a-použitá-literatura)
@@ -81,39 +80,39 @@ UDP (User Datagram Protocol) je jeden ze sady protokolů internetu. O protokolu 
 ##  Struktura aplikace
 
 
-# Základní třída: `ChatClient`
+### Základní třída: `ChatClient`
 
 Tato abstraktní třída slouží jako společný základ pro oba typy klientů – TCP a UDP. Obsahuje metodu `sendByeMessage()`, která umožňuje klientovi odeslat zprávu pro ukončení spojen.
 
-# Zpracování vstupu: `InputHandler`
+### Zpracování vstupu: `InputHandler`
 
 Třída `InputHandler` má  analýzovat a zpracovavat vstup od uživatee. Poskytuje metody jako `parseAuthCommand()` a `parseJoinCommand()`, které pomáhají identifikovat a interpretovat příkazy zadané uživatelm.
 
-# TCP klient: `TcpChatClient`
+### TCP klient: `TcpChatClient`
 
 Třída `TcpChatClient` dědí ze základní třídy `ChatClient` a implementuje funkcionalitu specifickou pro TCP komunikci. Mezi hlavní metody patří `connectToServer()`, `run()`, `sendByeMessage()`, `printHelp()`, `sendChannelJoinConfirmation()`, `process_reply()` a `processInvalidMessage). Tato třída také spolupracuje s třídami `MessageTcp` a `InputHandler` pro zpracování zpráv a vstpů.
 
-# Zprávy pro TCP: `MessageTcp`
+### Zprávy pro TCP: `MessageTcp`
 
 Třída `MessageTcp` definuje strukturu a typy zpráv používaných v TCP komunikaci. Obsahuje výčet `Type` s hodnotami jako `AUTH`, `JOIN`, `BYE`, `ERR`, `REPLY`.Mezi metody patří `fromBuffer()`, `getType()`, `getContent()`, `sendMessage()` a různé  metody pro vytváření specifických typů zráv.
 
-# UDP klient: `UdpChatClient`
+### UDP klient: `UdpChatClient`
 
 Třída `UdpChatClient` také dědí ze základní třídy `ChatClient` a implementuje funkcionalitu  pro UDP komunikaci.Obsahuje metody jako `connectToServer()`, `run()`, `handleCommand()`, `handleAuthCommand()`, `handleJoinCommand()`, `handleRenameCommand()`, `sendMessage()`, `sendByeMessage()` a `receiveServerResponseUDP)`.Tato třída spolupracuje s třídami `MessageUdp`, `InputHandler`, `UdpCommandBuilder` a `UdpReliableTransort`.
 
-# Zprávy pro UDP: `MessagUdp`
+### Zprávy pro UDP: `MessagUdp`
 
 Třída `MessageUdp` definuje strukturu zpráv používaných v UDP komuiaci. Obsahuje typ zprávy (`UdpMessageType`), identifikátor zprávy (`messageId`) a obsah zprávy (`paylod`).Poskytuje metody `packUdpMessage()` a `unpackUdpMessage()` pro serializaci a deserializacizpráv.
 
-# Stavitel příkazů pro UDP: `UdpCommandBulder`
+### Stavitel příkazů pro UDP: `UdpCommandBulder`
 
 Třída `UdpCommandBuilder` slouží k vytváření různých typů UDP správ. Poskytuje metody jako `buildAuthUdpMessage()`, `buildJoinUdpMessage()`, `buildMsgUdpMessage()`, `buildConfirmUdpMessage()` a `buildReplyUdpMesage()`.
 
-# Spolehlivý přenos pro UDP: `UdpReliableTrasport`
+### Spolehlivý přenos pro UDP: `UdpReliableTrasport`
 
 Třída `UdpReliableTransport` zajištuje spolehlivyj přenos zpráv v UDP, které je nespolhlivé.Udržuje mapu `pendingMessages` pro sledování nevyřízených zpráv a poskytuje metody `sendMessageWithConfirm()` a `processIncomingPacket()` pro odesílání zpráv s potvrzením a zpracování příchozích paketů.
 
-# Hlavní soubor: `main.cpp`
+### Hlavní soubor: `main.cpp`
 
 Soubor `main.cpp` tvoří vstupní bod celé aplikace. Provádí: zpracování parametrů příkazové řádky (transport, adresa, port),výběr odpovídajícího klienta podle protokolu (tcp nebo udp),zachytávání signálu SIGINT a zajištění odeslání BYE zprávy při ukončení,
 spuštění hlavní smyčky klienta voláním run().
