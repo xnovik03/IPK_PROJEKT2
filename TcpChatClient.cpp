@@ -20,7 +20,8 @@
 
 // Constructor that initializes the server address and port
 TcpChatClient::TcpChatClient(const std::string& host, int port)
-    : server(host), port(port), sockfd(-1),  authenticated(false) {}
+    : server(host), port(port != 0 ? port : DEFAULT_PORT), sockfd(-1), authenticated(false) {}
+
 
 // Destructor that closes the socket if it's open
 TcpChatClient::~TcpChatClient() {

@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
 
     std::string transport;  // Protocol type: tcp or udp
     std::string server;     // Server address
-    int port = 0;           // Port number
+    int port = DEFAULT_PORT;        // Port number
     bool portSet = false;   // Flag to check if port is provided
      
     // Parse command-line arguments
@@ -60,12 +60,25 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Check if required arguments are missing
-    if (transport.empty() || server.empty() || !portSet) {
-        std::cerr << "ERROR: Missing required arguments (-t, -s and -p are all required).\n";
-        printHelp();
-        return 1;
-    }
+  // Check if required arguments are missing for UDP
+if (transport == "udp" && (server.empty() || !portSet)) {
+    std::cerr << "ERROR: Missing required arguments (-t, -s and -p are all required for UDP).\n";
+    printHelp();
+    return 1;
+}
+
+// If transport is TCP, allow the port to be optional, and use default if not provided
+if (transport == "tcp" && server.empty()) {
+    std::cerr << "ERROR: Missing required argument -s (server address for TCP).\n";
+    printHelp();
+    return 1;
+}
+
+// For TCP, if port isn't provided, use the default port
+if (transport == "tcp" && !portSet) {
+    std::cerr << "No port specified for TCP. Using default port: " << DEFAULT_PORT << std::endl;
+    port = DEFAULT_PORT;
+}
 
     // TCP client flow
     if (transport == "tcp") {

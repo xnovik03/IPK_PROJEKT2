@@ -2,6 +2,8 @@
 #include <string>
 #include "MessageTcp.h"
 #include "ChatClient.h"
+
+#define DEFAULT_PORT 4567
 // This class represents a TCP chat client that connects to a server and sends/receives messages.
 class TcpChatClient : public ChatClient {
 public:
