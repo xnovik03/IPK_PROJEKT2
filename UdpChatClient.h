@@ -6,7 +6,7 @@
 #include <string>
 #include <netinet/in.h>
 #include <unordered_set>
-
+// Class to handle UDP chat client functionalities.
 class UdpChatClient : public ChatClient {
 public:
     UdpChatClient(const std::string& server, int port);
@@ -15,7 +15,7 @@ public:
     bool connectToServer();
     void run();
 
-    // Funkce pro příkazy
+    // Functions for handling commands    
     void printHelp(); 
     void handleCommand(const std::string& input);
     void handleAuthCommand(const std::string& input);
@@ -41,7 +41,7 @@ private:
     std::string displayName;
     std::unordered_set<uint16_t> confirmedMessageIds;
     
-    // Pomocné metody
+    // Helper methods
     bool bindSocket();
     bool resolveServerAddr();
 };

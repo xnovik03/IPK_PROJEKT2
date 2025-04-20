@@ -5,29 +5,29 @@
 #include <vector>
 #include <string>
 
-// Výčtový typ pro UDP zprávy dle specifikace
+// Enumeration for all UDP message types as specified in the protocol
 enum class UdpMessageType : uint8_t {
-    CONFIRM = 0x00,  
-    REPLY   = 0x01,  
-    AUTH    = 0x02,  
-    JOIN    = 0x03,  
-    MSG     = 0x04,  
-    PING    = 0xFD,  
-    ERR     = 0xFE,  
-    BYE     = 0xFF   
+    CONFIRM = 0x00,  // Confirmation message
+    REPLY   = 0x01,  // Server response (OK/NOK)
+    AUTH    = 0x02,  // Authentication request
+    JOIN    = 0x03,  // Join a channel
+    MSG     = 0x04,  // Standard message
+    PING    = 0xFD,  // Ping message (keep-alive)
+    ERR     = 0xFE,  // Error message
+    BYE     = 0xFF   // Terminate connection
 };
 
-// Struktura reprezentující UDP zprávu
+// Structure representing a UDP message to be sent or received
 struct UdpMessage {
-    UdpMessageType type;       // Typ zprávy (1 bajt)
-    uint16_t messageId;        //  MessageID (2 bajty)
-    std::vector<uint8_t> payload; 
+    UdpMessageType type;       // Message type (1 byte)
+    uint16_t messageId;        // Message ID (2 bytes) for deduplication/retry
+    std::vector<uint8_t> payload; // Message content (can be empty)
 };
 
-// Funkce na sestavení (pack) zprávy do binárního bufferu pro odeslání přes UDP
+// Converts a UdpMessage struct into a raw byte buffer for sending via UDP
 std::vector<uint8_t> packUdpMessage(const UdpMessage& msg);
 
-// Funkce pro rozbalení (unpack) přijatého bufferu do struktury UdpMessage
+// Converts a received raw byte buffer into a UdpMessage struct
 bool unpackUdpMessage(const std::vector<uint8_t>& buffer, UdpMessage& msg);
 
 #endif // MESSAGEUDP_H

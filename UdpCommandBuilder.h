@@ -6,9 +6,9 @@
 #include <vector>
 #include <string>
 
-
+// Function to pack a string into a vector of uint8_t, adding a null-terminator at the end
 std::vector<uint8_t> packString(const std::string& s);
-
+// Functions to build various types of UDP messages
 UdpMessage buildAuthUdpMessage(const AuthCommand& cmd, uint16_t messageId);
 
 UdpMessage buildJoinUdpMessage(const std::string& channel, const std::string& displayName, uint16_t messageId);

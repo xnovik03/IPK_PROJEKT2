@@ -8,7 +8,7 @@ std::vector<uint8_t> packUdpMessage(const UdpMessage& msg) {
     buffer.push_back(static_cast<uint8_t>(msg.type));
 
     if (msg.type != UdpMessageType::CONFIRM) {
-        /
+        
         uint16_t netMsgId = htons(msg.messageId);
         buffer.push_back(reinterpret_cast<uint8_t*>(&netMsgId)[0]);
         buffer.push_back(reinterpret_cast<uint8_t*>(&netMsgId)[1]);

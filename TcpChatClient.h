@@ -2,7 +2,7 @@
 #include <string>
 #include "MessageTcp.h"
 #include "ChatClient.h"
-
+// This class represents a TCP chat client that connects to a server and sends/receives messages.
 class TcpChatClient : public ChatClient {
 public:
     TcpChatClient(const std::string& host, int port);
