@@ -1,17 +1,17 @@
 # IPK25-CHAT klient
 
 
-
-##  Obsah
+## Obsah
 
 1. [Teorie](#teorie)
     - [Úvod do TCP a UDP](#úvod-do-tcp-a-udp)
     - [TCP](#tcp)
     - [UDP](#udp)
-2.  [UML diagramy](#uml-diagramy)
-  - [Struktura aplikace](#udp)
+2. [UML diagramy](#uml-diagramy)
+    - [Struktura aplikace](#struktura-aplikace)
 3. [Testování](#testování)
 4. [Zdroje a použitá literatura](#zdroje-a-použitá-literatura)
+
 
 ---
 
