@@ -1,7 +1,5 @@
 # Changelog
 
-## [Unreleased]
-
 ### TCP
 - **Problém s chybami**: V TCP verzi klienta máme problém s odesíláním a zpracováním **ERR** a **ERROR** zpráv. Tyto zprávy nejsou neuplne správně zpracovány .
   
