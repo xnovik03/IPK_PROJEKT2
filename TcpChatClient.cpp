@@ -17,7 +17,7 @@
 #include <cstdlib>   // pro std::exit
 #include <algorithm>
 TcpChatClient::TcpChatClient(const std::string& host, int port)
-    : server(host), port(port), sockfd(-1) {}
+    : server(host), port(port), sockfd(-1),  authenticated(false) {}
 
 TcpChatClient::~TcpChatClient() {
     if (sockfd != -1) close(sockfd);
@@ -110,6 +110,13 @@ void TcpChatClient::receiveServerResponse() {
             std::string line = leftover.substr(0, pos);
             leftover.erase(0, pos + 2);
 
+            // Pokud server pošle zprávu o připojení k výchozímu kanálu
+            if (line.find("MSG FROM Server IS") == 0 && line.find("joined default") != std::string::npos) {
+                std::cout << "Server: " << line << std::endl;
+                sendChannelJoinConfirmation();  // Odeslání potvrzení o připojení k výchozímu kanálu
+                continue;
+            }
+
             // Pokud je zpráva neplatná 
             if (line.rfind("AUTH", 0) != 0 && line.rfind("JOIN", 0) != 0 && 
                 line.rfind("REPLY", 0) != 0 && line.rfind("MSG", 0) != 0 &&
@@ -118,14 +125,22 @@ void TcpChatClient::receiveServerResponse() {
                 continue;
             }
 
-            // Ostatní zpracování zpráv
-            if (line.rfind("ERR", 0) == 0) {
-                std::string msg = line.substr(4);  // Skip "ERR "
-                std::cerr << "ERROR FROM SERVER: " << msg << "\n"; 
-                std::exit(1);
-            }
+            // Zpracování dalších zpráv
+            else if (line.rfind("ERR", 0) == 0) {
+    // ERR FROM DisplayName IS MessageContent
+    std::istringstream iss(line);
+    std::string tag, from, sender, is;
+    iss >> tag >> from >> sender >> is;
 
-            // Handle other messages (BYE, REPLY, etc.)
+    std::string content;
+    std::getline(iss, content);
+    if (!content.empty() && content.front() == ' ') content.erase(0, 1);
+
+    std::cout << "ERROR FROM " << sender << ": " << content << std::endl;
+    std::exit(1);
+}
+
+
             else if (line.rfind("BYE", 0) == 0) {
                 std::exit(0);  
             }
@@ -145,7 +160,6 @@ void TcpChatClient::receiveServerResponse() {
         }
     }
 }
-
 void TcpChatClient::run() {
     std::string line;
     std::string messageToSend;
@@ -161,23 +175,32 @@ void TcpChatClient::run() {
             printHelp();
             continue;
         }
-        if (displayName.empty() && line.rfind("/auth", 0) != 0) {
-            std::cout << "ERROR: not authenticated\n";
-            continue;
-        }
 
-        if (line.rfind("/auth", 0) == 0) {
+        // Pokud je uživatel přihlášen, ale pokusí se provést /auth, informuj ho
+       if (line.rfind("/auth", 0) == 0) {
+            if (authenticated) {
+                std::cout << "ERROR: You are already authenticated!" << std::endl;
+                return;  // Neprovádíme autentifikaci znovu
+            }
+
+            // Zpracování příkazu /auth, pokud ještě není uživatel přihlášen
             auto cmd = InputHandler::parseAuthCommand(line);
             if (cmd) {
                 messageToSend = "AUTH " + cmd->username + " AS " + cmd->displayName + " USING " + cmd->secret + "\r\n";
-                // Po úspěšném přihlášení nastavíme displayName
+                // Po úspěšném přihlášení nastavíme displayName a authenticated na true
                 displayName = cmd->displayName;
             } else {
                 std::cerr << "Invalid /auth command format.\n";
                 continue;
             }
 
-        } else if (line.rfind("/join", 0) == 0) {
+        } else if (displayName.empty() && line.rfind("/auth", 0) != 0) {
+            std::cout << "ERROR: not authenticated\n";
+            continue;
+        }
+
+        // Zpracování /join příkazu
+        else if (line.rfind("/join", 0) == 0) {
             auto cmd = InputHandler::parseJoinCommand(line);
             if (cmd) {
                 messageToSend = "JOIN " + cmd.value() + " AS " + displayName + "\r\n";
@@ -185,7 +208,10 @@ void TcpChatClient::run() {
                 std::cerr << "Invalid /join command format.\n";
                 continue;
             }
-        } else if (line.rfind("/rename", 0) == 0) {
+        }
+
+        // Zpracování /rename příkazu
+        else if (line.rfind("/rename", 0) == 0) {
             std::string newDisplayName = line.substr(8);  // Oříznutí "/rename "
             if (newDisplayName.empty()) {
                 std::cerr << "Invalid /rename command format: Display name cannot be empty.\n";
@@ -194,8 +220,10 @@ void TcpChatClient::run() {
             displayName = newDisplayName;  // Změníme displayName
             std::cout << "Display name changed to: " << displayName << std::endl;
             continue;
-        } else {
-            // Pokud to není příkaz, považujeme to za zprávu, kterou pošleme na server
+        }
+
+        // Pokud to není příkaz, považujeme to za zprávu, kterou pošleme na server
+        else {
             messageToSend = "MSG FROM " + displayName + " IS " + line + "\r\n";
         }
 
@@ -210,6 +238,7 @@ void TcpChatClient::run() {
     sendByeMessage();  // Zavolání sendByeMessage až po ukončení komunikace
     receiverThread.join();
 }
+
 
 void TcpChatClient::printHelp() {
     std::cout << "/auth {Username} {Secret} {DisplayName} - Authenticate user\n";
@@ -239,15 +268,30 @@ void TcpChatClient::process_reply(const Message& reply) {
 
         if (status == "OK") {
             std::cout << "Action Success: " << msg << std::endl;
+             authenticated = true ;
         } else if (status == "NOK") {
             std::cout << "Action Failure: " << msg << std::endl;  
+            authenticated = false;
         } else {
-            std::cerr << "ERROR: "Unknown REPLY status:  " << status << std::endl;  
+       std::cerr << "ERROR: Unknown REPLY status: " << status << std::endl;
         }
     }
 }
 void TcpChatClient::processInvalidMessage(const std::string& invalidMessage) {
     std::cerr << "ERROR: Invalid message received: " << invalidMessage << std::endl;
-    std::string errorMessage = "ERR FROM " + displayName + " IS " + invalidMessage + "\r\n";
+
+    // Před odesláním zprávy na server
+    std::string errorMessage = "ERROR FROM " + displayName + " IS " + invalidMessage + "\r\n";
     send(sockfd, errorMessage.c_str(), errorMessage.size(), 0);
+
+}
+// Odeslání potvrzení o připojení k výchozímu kanálu
+void TcpChatClient::sendChannelJoinConfirmation() {
+    // Posíláme potvrzení, že jsme připojeni k výchozímu kanálu
+    std::string msg = "MSG FROM " + displayName + " IS " + displayName + " joined default.\r\n";
+    std::cout << "Sending: " << msg << std::endl;
+    if (send(sockfd, msg.c_str(), msg.size(), 0) == -1) {
+        std::perror("ERROR: send failed");
+        std::exit(1);
+    }
 }

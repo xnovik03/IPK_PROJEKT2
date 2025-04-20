@@ -13,14 +13,14 @@ public:
     void printHelp();
     void sendByeMessage();
     void process_reply(const Message& reply);
-
+    void sendChannelJoinConfirmation();
    void processInvalidMessage(const std::string& invalidMessage);
 private:
     std::string server;
     std::string displayName; 
     int port;
     int sockfd;
-
+    bool authenticated; 
     void receiveServerResponse();
     Message parseMessage(const std::string& buffer); 
 };
