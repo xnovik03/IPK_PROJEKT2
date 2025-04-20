@@ -164,18 +164,30 @@ void UdpChatClient::handleRenameCommand(const std::string& input) {
     std::string newDisplayName = input.substr(8);
     newDisplayName.erase(0, newDisplayName.find_first_not_of(" \t"));
     newDisplayName.erase(newDisplayName.find_last_not_of(" \t") + 1);
+
     if (newDisplayName.empty()) {
         std::cout << "ERROR: Neplatný /rename příkaz: Display name nesmí být prázdný." << std::endl;
         return;
     }
+
+    if (displayName.empty()) {
+        std::cout << "ERROR: Nejprve se musíte autentizovat (/auth)." << std::endl;
+        return;
+    }
+
     displayName = newDisplayName;
     std::cout << "Display name změněn na: " << displayName << std::endl;
+    std::cout << "[DEBUG] Nastaven nový displayName: " << displayName << std::endl;
 }
+
+
 
 void UdpChatClient::sendMessage(const std::string& message) {
     if (displayName.empty()) {
         std::cout << "ERROR: Nejprve se musíte autentizovat (/auth) než odešlete zprávu." << std::endl;
     } else {
+        std::cout << "[DEBUG] Odesílám zprávu jako: " << displayName << std::endl;
+
         UdpMessage msgMsg = buildMsgUdpMessage(displayName, message, nextMessageId++);
         std::vector<uint8_t> buffer = packUdpMessage(msgMsg);
         ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
@@ -187,6 +199,7 @@ void UdpChatClient::sendMessage(const std::string& message) {
         }
     }
 }
+
 void UdpChatClient::sendByeMessage() {
     if (!displayName.empty()) {
         UdpMessage byeMsg;
@@ -326,36 +339,40 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
         displayName.clear();  // Autentizace selhala, nesmíme pokračovat
     }
 
-    // CONFIRM na REPLY
+    std::cout << "[DEBUG] Posílám CONFIRM na REPLY (messageId: " << replyMsg.messageId << ")" << std::endl;
+
     UdpMessage confirmMsg = buildConfirmUdpMessage(replyMsg.messageId);
     std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
+
+    std::cout << "[DEBUG] Obsah CONFIRM zprávy (hex): ";
+    for (auto byte : buffer) {
+        std::cout << std::hex << std::uppercase << (int)byte << " ";
+    }
+    std::cout << std::dec << std::endl;
+
     sendto(sockfd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
 }
 
-
-
 void UdpChatClient::processMsgMessage(const UdpMessage& msgMsg) {
-    // Pokud je zpráva o připojení k výchozímu kanálu (typ "Joined default.")
     if (msgMsg.payload.size() > 0) {
         std::string message(msgMsg.payload.begin(), msgMsg.payload.end());
 
+        std::cout << "[DEBUG] Obdržena MSG zpráva: " << message << std::endl;
+
         if (message == "Joined default.") {
             std::cout << "Autentizace úspěšná. Připojuji se k výchozímu kanálu..." << std::endl;
+        }
 
-            // Když server připojí klienta k výchozímu kanálu, odpověz CONFIRM
-            UdpMessage confirmMsg;
-            confirmMsg.type = UdpMessageType::CONFIRM;
-            confirmMsg.messageId = nextMessageId++;
-            confirmMsg.payload.clear();  // Můžeme vyčistit payload, pokud není potřeba
+        UdpMessage confirmMsg = buildConfirmUdpMessage(msgMsg.messageId);
+        UdpMessage msgMsg = buildMsgUdpMessage(displayName, message, nextMessageId++);
 
-            std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
-            ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
-                                       (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-            if (sentBytes < 0) {
-                perror("ERROR: Odeslání UDP CONFIRM zprávy selhalo");
-            } else {
-                std::cout << "UDP CONFIRM zpráva odeslána." << std::endl;
-            }
+        std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
+        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        if (sentBytes < 0) {
+            perror("ERROR: Odeslání UDP CONFIRM zprávy selhalo");
+        } else {
+            std::cout << "UDP CONFIRM zpráva odeslána." << std::endl;
         }
     }
 }

@@ -2,24 +2,23 @@
 #include <arpa/inet.h>
 #include <cstring>
 
-// Sestaví (pack) UDP zprávu do binárního bufferu.
 std::vector<uint8_t> packUdpMessage(const UdpMessage& msg) {
     std::vector<uint8_t> buffer;
-    
-    // Přidej 1 bajt: typ zprávy
+
     buffer.push_back(static_cast<uint8_t>(msg.type));
-    
-    // Připrav MessageID ve formátu network byte order
-    uint16_t netMessageId = htons(msg.messageId);
-    uint8_t* idBytes = reinterpret_cast<uint8_t*>(&netMessageId);
-    buffer.push_back(idBytes[0]);
-    buffer.push_back(idBytes[1]);
-    
-    // Přidej payload (pokud existuje)
+
+    if (msg.type != UdpMessageType::CONFIRM) {
+        /
+        uint16_t netMsgId = htons(msg.messageId);
+        buffer.push_back(reinterpret_cast<uint8_t*>(&netMsgId)[0]);
+        buffer.push_back(reinterpret_cast<uint8_t*>(&netMsgId)[1]);
+    }
+
     buffer.insert(buffer.end(), msg.payload.begin(), msg.payload.end());
-    
+
     return buffer;
 }
+
 
 // Rozbalí (unpack) binární buffer zpět do struktury UdpMessage.
 bool unpackUdpMessage(const std::vector<uint8_t>& buffer, UdpMessage& msg) {
