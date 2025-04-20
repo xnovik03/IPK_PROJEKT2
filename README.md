@@ -9,7 +9,7 @@
     - [TCP](#tcp)
     - [UDP](#udp)
 2.  [UML diagramy](#uml-diagramy)
-    - [ Struktura aplikace](# struktura-aplikace)
+    - [Struktura aplikace](# struktura-aplikace)
 3. [Testování](#testování)
 4. [Zdroje a použitá literatura](#zdroje-a-použitá-literatura)
 
@@ -159,3 +159,7 @@ Např. test: tcp_auth_nok_ok
   
 
 - https://www.planttext.com/ (byly využity pro teorie v dokumentaci )
+
+### Použití ChatGPT při vývoji
+
+Během vývoje tohoto projektu jsem využívala ChatGPT jako poradce pro zlepšení struktury a optimalizaci kódu. Tento nástroj mi poskytl návrhy a doporučení, jak vylepšit funkce, opravit chyby a zefektivnit logiku kódu. Když jsem čelila výzvám při implementaci složitějších funkcí nebo optimalizaci kódu, ChatGPT mi nabídl nápady a směry, jak dosáhnout lepších a efektivnějších řešení.
