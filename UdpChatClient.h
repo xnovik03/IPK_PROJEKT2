@@ -42,7 +42,7 @@ private:
     std::string serverAddress;
     int serverPort;
     int sockfd;
-    void processReplyMessage(const UdpMessage& replyMsg);
+    void processReplyMessage(const UdpMessage& replyMsg, const sockaddr_in& fromAddr);
     void processErrMessage(const UdpMessage& errMsg);
     void receiveServerResponseUDP();
     void processConfirmMessage(const UdpMessage& confirmMsg); 

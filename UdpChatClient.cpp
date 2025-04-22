@@ -297,7 +297,7 @@ void UdpChatClient::receiveServerResponseUDP() {
         // Process the message based on its type
         switch (receivedMsg.type) {
             case UdpMessageType::REPLY:
-                processReplyMessage(receivedMsg);  // Handle REPLY message
+                processReplyMessage(receivedMsg, fromAddr);  // Handle REPLY message
                 break;
 
             case UdpMessageType::CONFIRM:
@@ -385,7 +385,7 @@ void UdpChatClient::processErrMessage(const UdpMessage& errMsg) {
 
 // Process the reply message (REPLY)
 // This function checks the result and processes the content accordingly
-void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
+void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg, const sockaddr_in& fromAddr) {
     if (replyMsg.payload.size() < 3) {
         std::cerr << "ERROR: REPLY message is too short." << std::endl;
         return;
@@ -393,6 +393,8 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
 
     uint8_t result = replyMsg.payload[0];  // Result: 1 for success, 0 for failure
     std::string content(replyMsg.payload.begin() + 3, replyMsg.payload.end());  // Message content
+
+    serverAddr = fromAddr;
 
     // Handle success or failure based on the result
     if (result == 1) {
@@ -405,7 +407,6 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
         std::cout << "Action Failure: " << content << std::endl;
         displayName.clear();  // Authentication failed, clear display name
     }
-
     // Debugging: Print the message ID and prepare the CONFIRM message
     std::cerr << "[DEBUG] Sending CONFIRM for REPLY (messageId: " << replyMsg.messageId << ")" << std::endl;
 
@@ -416,7 +417,7 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
     for (auto byte : buffer) {
         std::cerr << std::hex << std::uppercase << (int)byte << " ";  // Print in hexadecimal
     }
-    std::cerr << std::dec << std::endl;  // Switch back to decimal output
+    std::cerr << std::dec << std::endl;
 
     sendto(sockfd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
 }
