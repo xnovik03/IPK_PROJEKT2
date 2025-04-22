@@ -305,11 +305,12 @@ void TcpChatClient::process_reply(const Message& reply) {
 
 // Function to process an invalid message and send an error message to the server
 void TcpChatClient::processInvalidMessage(const std::string& invalidMessage) {
-    std::cerr << "ERROR: " << invalidMessage << std::endl;  // Print the invalid message error
+    std::cout << "ERROR: " << invalidMessage << std::endl;  // Print the invalid message error
 
     // Before sending the error message to the server, format it
-    std::string errorMessage = "ERROR FROM " + displayName + " IS " + invalidMessage + "\r\n";
+    std::string errorMessage = "ERR FROM " + displayName + " IS " + invalidMessage + "\r\n";
     send(sockfd, errorMessage.c_str(), errorMessage.size(), 0);  // Send the error message to the server
+    std::exit(1); 
 }
 
 // Function to send a confirmation message when the user joins the default channel
