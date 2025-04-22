@@ -102,6 +102,15 @@ void UdpChatClient::run() {
     // Start background receiver
     receiverThread = std::thread(&UdpChatClient::backgroundReceiverLoop, this);
 
+    retransmissionThread = std::thread([this]() {
+        while (running) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));  
+            checkRetransmissions();
+        }
+    });
+
+    running = true;
+
     std::string input;
     while (true) {
         if (!std::getline(std::cin, input)) {
@@ -120,11 +129,9 @@ void UdpChatClient::run() {
     }
 
     running = false;
-    if (receiverThread.joinable()) {
-        receiverThread.join();
-    }
+    if (receiverThread.joinable()) receiverThread.join();
+    if (retransmissionThread.joinable()) retransmissionThread.join();
 }
-
 
 // Handles different commands based on user input
 // It processes commands like /help, /auth, /join, /rename, etc.
@@ -158,30 +165,30 @@ void UdpChatClient::printHelp() {
 // Handle the authentication command (/auth)
 // This function parses the input, validates it, and sends the authentication message to the server
 void UdpChatClient::handleAuthCommand(const std::string& input) {
-     if (!displayName.empty()) {
+    if (!displayName.empty()) {
         std::cout << "ERROR: You are already authenticated!" << std::endl;
         return;  // Do not authenticate again
     }
+
     auto authOpt = InputHandler::parseAuthCommand(input);  // Parse the /auth command
     if (authOpt) {
         this->displayName = authOpt->displayName;  // Set the display name after successful authentication
-        // Build the authentication message and send it to the server
+
+        //  Build the AUTH message
         UdpMessage authMsg = buildAuthUdpMessage(*authOpt, nextMessageId++);
-        std::vector<uint8_t> buffer = packUdpMessage(authMsg);
-        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0, 
-                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-        if (sentBytes < 0) {
-            perror("ERROR: Sending UDP AUTH message failed");
-        } else {
-             printf_debug("UDP AUTH message sent.");
-        }
-        
-        // Wait for the server's REPLY response
-        receiveServerResponseUDP();  // This function waits and processes the server's reply
+
+        // Send the AUTH message using the reliable sending mechanism
+        sendRawUdpMessage(authMsg);  
+
+        printf_debug("UDP AUTH message sent.");
+
+        // Wait for the server's REPLY response 
+        receiveServerResponseUDP();
     } else {
-          printf_debug("Invalid /auth command. Correct format: /auth {Username} {Secret} {DisplayName}");
-     }
+        printf_debug("Invalid /auth command. Correct format: /auth {Username} {Secret} {DisplayName}");
+    }
 }
+
 
 // Handle the join command (/join)
 // This function parses the /join command, checks if the user is authenticated,
@@ -235,21 +242,15 @@ void UdpChatClient::handleRenameCommand(const std::string& input) {
 void UdpChatClient::sendMessage(const std::string& message) {
     if (displayName.empty()) {  // Check if the user is authenticated
         std::cout << "ERROR: You must authenticate first (/auth) before sending a message." << std::endl;
-    } else {
-        std::cerr << "[DEBUG] Sending message as: " << displayName << std::endl;  // Debugging output
-
-        // Build the message and send it to the server
-        UdpMessage msgMsg = buildMsgUdpMessage(displayName, message, nextMessageId++);
-        std::vector<uint8_t> buffer = packUdpMessage(msgMsg);
-        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0, 
-                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-        if (sentBytes < 0) {
-            perror("ERROR: Sending UDP MSG message failed");
-        } else {
-            std::cerr << "UDP MSG message sent." << std::endl;
-        }
+        return;
     }
+
+    printf_debug("Sending message as '%s'", displayName.c_str());
+    // Build the message and send it to the server
+    UdpMessage msgMsg = buildMsgUdpMessage(displayName, message, nextMessageId++);
+    sendRawUdpMessage(msgMsg);
 }
+
 
 // Send a BYE message to the server
 // This function is used when the user wants to disconnect from the server
@@ -445,6 +446,7 @@ void UdpChatClient::processMsgMessage(const UdpMessage& msgMsg) {
 // Process the CONFIRM message received from the server
 void UdpChatClient::processConfirmMessage(const UdpMessage& confirmMsg) {
     std::cerr << "Received CONFIRM message from server (RefID: " << confirmMsg.messageId << ")." << std::endl;
+    sentMessages.erase(confirmMsg.messageId);
 }
 
 // Send a PING message to the server
@@ -496,4 +498,38 @@ void UdpChatClient::backgroundReceiverLoop() {
     while (running) {
         receiveServerResponseUDP();
     }
+}
+void UdpChatClient::checkRetransmissions() {
+    auto now = std::chrono::steady_clock::now();
+
+    for (auto& pair : sentMessages) {
+        auto& msg = pair.second;
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - msg.timestamp);
+
+        printf_debug("Checking message ID %d: elapsed = %ld ms", msg.messageId, elapsed.count());
+
+        if (elapsed.count() >= 2000) {
+            printf_debug("[RETRANS] Resending message ID %d", msg.messageId);
+            sendto(sockfd, msg.data.data(), msg.data.size(), 0,
+                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+            msg.timestamp = now;
+        }
+    }
+}
+void UdpChatClient::sendRawUdpMessage(const UdpMessage& msg) {
+    std::vector<uint8_t> buffer = packUdpMessage(msg);
+    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0, 
+                               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+    if (sentBytes < 0) {
+        perror("ERROR: Sending UDP message failed");
+        return;
+    }
+
+    printf_debug("Sent message with ID %d (type %d, size %zu)", msg.messageId, static_cast<int>(msg.type), buffer.size());
+
+    sentMessages[msg.messageId] = {
+        buffer,
+        msg.messageId,
+        std::chrono::steady_clock::now()
+    };
 }
