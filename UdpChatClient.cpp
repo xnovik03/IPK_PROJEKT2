@@ -314,6 +314,9 @@ void UdpChatClient::receiveServerResponseUDP() {
             case UdpMessageType::BYE:
                  processByeMessage(receivedMsg);  
                  break;
+            case UdpMessageType::PING:
+                 processPingMessage(receivedMsg);  
+                 break;
 
             default:
                 std::cerr << "ERROR: Unknown message type: " << static_cast<int>(receivedMsg.type) << std::endl;
@@ -468,13 +471,15 @@ void UdpChatClient::sendPingMessage() {
 
 // Process the PING message received from the server
 void UdpChatClient::processPingMessage(const UdpMessage& pingMsg) {
-    (void)pingMsg; // Marking the parameter as unused
-    std::cerr << "Received PING message from server." << std::endl;
+    printf_debug("Received PING message from server.");
 
     UdpMessage confirmMsg;
-    confirmMsg.type = UdpMessageType::CONFIRM;  // Set message type to CONFIRM
-    confirmMsg.messageId = nextMessageId++;  // Assign a new message ID
-    confirmMsg.payload.clear();  // Confirm can have an empty payload
+    confirmMsg.type = UdpMessageType::CONFIRM; // Set message type to CONFIRM
+    confirmMsg.messageId = 0;  
+    confirmMsg.payload.resize(sizeof(uint16_t));
+
+    uint16_t netRefId = htons(pingMsg.messageId);  
+    std::memcpy(confirmMsg.payload.data(), &netRefId, sizeof(uint16_t));
 
     std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
     ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
@@ -482,9 +487,10 @@ void UdpChatClient::processPingMessage(const UdpMessage& pingMsg) {
     if (sentBytes < 0) {
         perror("ERROR: Sending CONFIRM message for PING failed");
     } else {
-        std::cerr << "CONFIRM message for PING sent." << std::endl;
+        printf_debug("CONFIRM message for PING sent.");
     }
 }
+
 void UdpChatClient::processByeMessage(const UdpMessage& byeMsg) {
     std::cerr << "Received BYE message from server. Terminating client." << std::endl;
 
