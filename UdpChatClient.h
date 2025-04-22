@@ -57,7 +57,8 @@ private:
     std::unordered_set<uint16_t> confirmedMessageIds;
     std::thread receiverThread;
     std::atomic<bool> running = true;
-      std::thread retransmissionThread;
+    std::thread retransmissionThread;
+    std::unordered_set<uint16_t> receivedMsgIds; 
     void backgroundReceiverLoop();
     // Helper methods
     bool bindSocket();

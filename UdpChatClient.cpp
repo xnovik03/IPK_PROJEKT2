@@ -423,27 +423,29 @@ void UdpChatClient::processReplyMessage(const UdpMessage& replyMsg) {
 
 // Process the message (MSG) received from the server
 void UdpChatClient::processMsgMessage(const UdpMessage& msgMsg) {
-    if (msgMsg.payload.size() > 0) {
-        std::string message(msgMsg.payload.begin(), msgMsg.payload.end());
-        std::cerr << "[DEBUG] Received MSG message: " << message << std::endl;
+    if (msgMsg.payload.empty()) return;
 
-        if (message == "Joined default.") {
-            std::cerr << "Authentication successful. Joining default channel..." << std::endl;
-        }
+    // Duplikáty
+    if (receivedMsgIds.count(msgMsg.messageId)) {
+        printf_debug("Duplicate MSG message received (ID %d), sending CONFIRM only", msgMsg.messageId);
+    } else {
+        receivedMsgIds.insert(msgMsg.messageId);
 
-        // Prepare the CONFIRM message and send it back
-        UdpMessage confirmMsg = buildConfirmUdpMessage(msgMsg.messageId);
-        UdpMessage msgMessage = buildMsgUdpMessage(displayName, message, nextMessageId++);
+        auto it = std::find(msgMsg.payload.begin(), msgMsg.payload.end(), '\0');
+        if (it == msgMsg.payload.end()) return; // není odděleno
 
-        std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
-        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
-                                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-        if (sentBytes < 0) {
-            perror("ERROR: Sending UDP CONFIRM message failed");
-        } else {
-            std::cerr << "UDP CONFIRM message sent." << std::endl;
-        }
+        std::string displayName(msgMsg.payload.begin(), it);
+        std::string content(it + 1, msgMsg.payload.end());
+
+        std::cout << displayName << ": " << content << std::endl;
+        printf_debug("Received MSG message: %s", content.c_str());
     }
+
+    // Prepare the CONFIRM message and send it back
+    UdpMessage confirmMsg = buildConfirmUdpMessage(msgMsg.messageId);
+    std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
+    sendto(sockfd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+    std::cerr << "UDP CONFIRM message sent." << std::endl;
 }
 
 // Process the CONFIRM message received from the server
