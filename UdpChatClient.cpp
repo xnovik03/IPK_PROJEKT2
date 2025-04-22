@@ -319,10 +319,10 @@ void UdpChatClient::receiveServerResponseUDP() {
                  processPingMessage(receivedMsg);  
                  break;
 
-    default:
+   default:
     std::cout << "ERROR: Unknown message type: " << static_cast<int>(receivedMsg.type) << std::endl;
- 
-    // Build and send CONFIRM even for unknown type
+
+    // Send CONFIRM for unknown message type
     UdpMessage confirmMsg;
     confirmMsg.type = UdpMessageType::CONFIRM;
     confirmMsg.messageId = 0;
@@ -331,16 +331,34 @@ void UdpChatClient::receiveServerResponseUDP() {
     uint16_t netId = htons(receivedMsg.messageId);
     std::memcpy(confirmMsg.payload.data(), &netId, sizeof(uint16_t));
 
-    std::vector<uint8_t> buffer = packUdpMessage(confirmMsg); 
-    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
-                               (struct sockaddr*)&fromAddr, sizeof(fromAddr)); 
+    std::vector<uint8_t> confirmBuf = packUdpMessage(confirmMsg);
+    sendto(sockfd, confirmBuf.data(), confirmBuf.size(), 0,
+           (struct sockaddr*)&fromAddr, sizeof(fromAddr));
+    std::cerr << "UDP CONFIRM message sent for unknown message type." << std::endl;
 
-    if (sentBytes < 0) {
-        perror("ERROR: Sending CONFIRM for unknown message failed");
+    // Build and send ERR message
+    UdpMessage errMsg;
+    errMsg.type = UdpMessageType::ERR;
+    errMsg.messageId = nextMessageId++;
+
+    std::string errSender = displayName.empty() ? "client" : displayName;
+    std::string errorMsg = "Unknown message type: " + std::to_string(static_cast<int>(receivedMsg.type));
+
+    errMsg.payload.insert(errMsg.payload.end(), errSender.begin(), errSender.end());
+    errMsg.payload.push_back('\0');
+    errMsg.payload.insert(errMsg.payload.end(), errorMsg.begin(), errorMsg.end());
+    errMsg.payload.push_back('\0');
+
+    std::vector<uint8_t> errBuf = packUdpMessage(errMsg);
+    ssize_t errSent = sendto(sockfd, errBuf.data(), errBuf.size(), 0,
+                             (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+
+    if (errSent < 0) {
+        perror("ERROR: Sending ERR message for unknown type failed");
     } else {
-        std::cerr << "UDP CONFIRM message sent for unknown message type." << std::endl;
+        std::cerr << "ERR message sent for unknown message type." << std::endl;
     }
-    
+
     break;
 
 
