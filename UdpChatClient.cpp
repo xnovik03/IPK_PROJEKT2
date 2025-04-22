@@ -10,7 +10,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include "debug.h"
-
+#include <netdb.h>
 // Constructor for initializing the UDP client with the server address and port
 // It also initializes the sockfd to -1, nextMessageId to 0, and displayName to an empty string
 UdpChatClient::UdpChatClient(const std::string& server, int port)
@@ -58,15 +58,25 @@ bool UdpChatClient::bindSocket() {
 // Resolves the server address from the given string (e.g., IP address or hostname)
 // If the address is valid, it fills the serverAddr structure
 bool UdpChatClient::resolveServerAddr() {
-    std::memset(&serverAddr, 0, sizeof(serverAddr));  // Clear the structure
-    serverAddr.sin_family = AF_INET;  // Set the address family to IPv4
-    serverAddr.sin_port = htons(serverPort);  // Set the server port
+    std::memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(serverPort);
 
-    // Convert the server address string to network address format
-    if (inet_pton(AF_INET, serverAddress.c_str(), &serverAddr.sin_addr) <= 0) {
-        std::cerr << "ERROR: Invalid server IP address: " << serverAddress << "\n";  // Print error if address conversion fails
+    struct addrinfo hints{}, *res;
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;       // IPv4
+    hints.ai_socktype = SOCK_DGRAM;  // UDP
+
+    int status = getaddrinfo(serverAddress.c_str(), nullptr, &hints, &res);
+    if (status != 0 || res == nullptr) {
+        std::cerr << "ERROR: getaddrinfo failed for " << serverAddress << ": " << gai_strerror(status) << std::endl;
         return false;
     }
+
+    struct sockaddr_in* ipv4 = reinterpret_cast<struct sockaddr_in*>(res->ai_addr);
+    serverAddr.sin_addr = ipv4->sin_addr;
+
+    freeaddrinfo(res);  // Always free the result!
     return true;
 }
 
