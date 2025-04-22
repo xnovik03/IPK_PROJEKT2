@@ -6,6 +6,8 @@
 #include <string>
 #include <netinet/in.h>
 #include <unordered_set>
+#include <thread>
+#include <atomic>
 // Class to handle UDP chat client functionalities.
 class UdpChatClient : public ChatClient {
 public:
@@ -22,7 +24,8 @@ public:
     void handleJoinCommand(const std::string& input);
     void handleRenameCommand(const std::string& input);
     void sendMessage(const std::string& message);
-    
+    void processByeMessage(const UdpMessage& byeMsg);
+
     void sendByeMessage();
   
 private:
@@ -40,7 +43,9 @@ private:
     uint16_t nextMessageId;
     std::string displayName;
     std::unordered_set<uint16_t> confirmedMessageIds;
-    
+    std::thread receiverThread;
+    std::atomic<bool> running = true;
+    void backgroundReceiverLoop();
     // Helper methods
     bool bindSocket();
     bool resolveServerAddr();

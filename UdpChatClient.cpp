@@ -98,22 +98,33 @@ bool UdpChatClient::connectToServer() {
 // This is where the client waits for input, processes commands, and sends messages
 void UdpChatClient::run() {
     std::cerr << "UDP client started. Enter a command: " << std::endl;
+
+    // Start background receiver
+    receiverThread = std::thread(&UdpChatClient::backgroundReceiverLoop, this);
+
     std::string input;
-    while (std::getline(std::cin, input)) {  // Read user input
-
-        if (input.empty()) continue;  // Skip empty inputs
-
-        // Check if the input is a command starting with '/'
-        if (input[0] == '/') {
-            handleCommand(input);  // Process the command
-        } else {
-            sendMessage(input);  // Otherwise, treat it as a message to send
+    while (true) {
+        if (!std::getline(std::cin, input)) {
+            std::cerr << "Stdin closed. Sending BYE and exiting." << std::endl;
+            sendByeMessage();
+            break;
         }
 
-        // Process incoming responses from the server
-        receiveServerResponseUDP();  // This function processes incoming messages
+        if (input.empty()) continue;
+
+        if (input[0] == '/') {
+            handleCommand(input);
+        } else {
+            sendMessage(input);
+        }
+    }
+
+    running = false;
+    if (receiverThread.joinable()) {
+        receiverThread.join();
     }
 }
+
 
 // Handles different commands based on user input
 // It processes commands like /help, /auth, /join, /rename, etc.
@@ -248,9 +259,12 @@ void UdpChatClient::sendByeMessage() {
         byeMsg.type = UdpMessageType::BYE;  // Set the message type to BYE
         byeMsg.messageId = nextMessageId++;  // Assign a unique message ID
         byeMsg.payload = packString(displayName);  // Pack the display name as the payload
+
         std::vector<uint8_t> buffer = packUdpMessage(byeMsg);
-        std::cerr << "DEBUG: Sending BYE message with MessageID " << byeMsg.messageId << ", payload size = " << byeMsg.payload.size() << std::endl;
-        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0, 
+        std::cerr << "DEBUG: Sending BYE message with MessageID " << byeMsg.messageId
+                  << ", payload size = " << byeMsg.payload.size() << std::endl;
+
+        ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
                                    (struct sockaddr*)&serverAddr, sizeof(serverAddr));
         if (sentBytes < 0) {
             perror("ERROR: Sending UDP BYE message failed");
@@ -296,6 +310,9 @@ void UdpChatClient::receiveServerResponseUDP() {
             case UdpMessageType::ERR:
                 processErrMessage(receivedMsg);  // Handle ERROR message
                 break;
+            case UdpMessageType::BYE:
+                 processByeMessage(receivedMsg);  
+                 break;
 
             default:
                 std::cerr << "ERROR: Unknown message type: " << static_cast<int>(receivedMsg.type) << std::endl;
@@ -464,5 +481,19 @@ void UdpChatClient::processPingMessage(const UdpMessage& pingMsg) {
         perror("ERROR: Sending CONFIRM message for PING failed");
     } else {
         std::cerr << "CONFIRM message for PING sent." << std::endl;
+    }
+}
+void UdpChatClient::processByeMessage(const UdpMessage& byeMsg) {
+    std::cerr << "Received BYE message from server. Terminating client." << std::endl;
+
+    UdpMessage confirmMsg = buildConfirmUdpMessage(byeMsg.messageId);
+    std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
+    sendto(sockfd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+
+    std::exit(EXIT_SUCCESS);
+}
+void UdpChatClient::backgroundReceiverLoop() {
+    while (running) {
+        receiveServerResponseUDP();
     }
 }
