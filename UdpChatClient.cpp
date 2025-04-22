@@ -148,6 +148,7 @@ void UdpChatClient::handleCommand(const std::string& input) {
         handleRenameCommand(input); // Handle rename display name command
     } else {
         std::cerr << "ERROR: Unknown command: " << input << std::endl;  // Show error for unknown commands
+          std::exit(1); 
     }
 }
 
@@ -282,7 +283,7 @@ void UdpChatClient::receiveServerResponseUDP() {
     socklen_t addrLen = sizeof(fromAddr);
     
     // Receive a message from the server
-    ssize_t bytesReceived = recvfrom(sockfd, recvBuffer, sizeof(recvBuffer), 0,
+ ssize_t bytesReceived = recvfrom(sockfd, recvBuffer, sizeof(recvBuffer), 0,
                                      (struct sockaddr*)&fromAddr, &addrLen);
     if (bytesReceived <= 0) {
         std::cerr << "Error receiving message!" << std::endl;
@@ -291,7 +292,7 @@ void UdpChatClient::receiveServerResponseUDP() {
 
     std::vector<uint8_t> data(recvBuffer, recvBuffer + bytesReceived);
     UdpMessage receivedMsg;
-    
+
     // Unpack the received UDP message
     if (unpackUdpMessage(data, receivedMsg)) {
         // Process the message based on its type
@@ -318,9 +319,31 @@ void UdpChatClient::receiveServerResponseUDP() {
                  processPingMessage(receivedMsg);  
                  break;
 
-            default:
-                std::cerr << "ERROR: Unknown message type: " << static_cast<int>(receivedMsg.type) << std::endl;
-                break;
+    default:
+    std::cout << "ERROR: Unknown message type: " << static_cast<int>(receivedMsg.type) << std::endl;
+ 
+    // Build and send CONFIRM even for unknown type
+    UdpMessage confirmMsg;
+    confirmMsg.type = UdpMessageType::CONFIRM;
+    confirmMsg.messageId = 0;
+    confirmMsg.payload.resize(2);
+
+    uint16_t netId = htons(receivedMsg.messageId);
+    std::memcpy(confirmMsg.payload.data(), &netId, sizeof(uint16_t));
+
+    std::vector<uint8_t> buffer = packUdpMessage(confirmMsg); 
+    ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
+                               (struct sockaddr*)&fromAddr, sizeof(fromAddr)); 
+
+    if (sentBytes < 0) {
+        perror("ERROR: Sending CONFIRM for unknown message failed");
+    } else {
+        std::cerr << "UDP CONFIRM message sent for unknown message type." << std::endl;
+    }
+    
+    break;
+
+
         }
     }
 }
@@ -522,6 +545,7 @@ void UdpChatClient::checkRetransmissions() {
             sendto(sockfd, msg.data.data(), msg.data.size(), 0,
                    (struct sockaddr*)&serverAddr, sizeof(serverAddr));
             msg.timestamp = now;
+                std::cout << "ERROR: Confirmation not received for message ID " << msg.messageId << std::endl;
         }
     }
 }

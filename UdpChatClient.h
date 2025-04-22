@@ -9,16 +9,14 @@
 #include <thread>
 #include <atomic>
 #include <unordered_map>
+
 struct SentMessageInfo {
     std::vector<uint8_t> data;
     uint16_t messageId;
     std::chrono::steady_clock::time_point timestamp;
 };
 
-std::unordered_map<uint16_t, SentMessageInfo> sentMessages;
-
 // Class to handle UDP chat client functionalities.
-
 class UdpChatClient : public ChatClient {
 public:
     UdpChatClient(const std::string& server, int port);
@@ -35,7 +33,7 @@ public:
     void handleRenameCommand(const std::string& input);
     void sendMessage(const std::string& message);
     void processByeMessage(const UdpMessage& byeMsg);
-     
+    
     void sendByeMessage();
   
 private:
@@ -58,7 +56,9 @@ private:
     std::thread receiverThread;
     std::atomic<bool> running = true;
     std::thread retransmissionThread;
-    std::unordered_set<uint16_t> receivedMsgIds; 
+    std::unordered_set<uint16_t> receivedMsgIds;
+    std::unordered_map<uint16_t, SentMessageInfo> sentMessages;
+
     void backgroundReceiverLoop();
     // Helper methods
     bool bindSocket();
