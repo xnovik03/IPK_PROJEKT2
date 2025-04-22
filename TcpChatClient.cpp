@@ -109,6 +109,12 @@ Message TcpChatClient::parseMessage(const std::string& buffer) {
 }
 
 // Function to receive and process server responses
+std::string to_upper(const std::string& input) {
+    std::string upper = input;
+    std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+    return upper;
+}
+
 void TcpChatClient::receiveServerResponse() {
     char buffer[2048];   // Buffer to store incoming data
     std::string leftover; // String to store leftover data if the message is not complete
@@ -124,25 +130,25 @@ void TcpChatClient::receiveServerResponse() {
         while ((pos = leftover.find("\r\n")) != std::string::npos) {
             std::string line = leftover.substr(0, pos); // Extract a complete line
             leftover.erase(0, pos + 2);  // Remove processed line from leftover
+            std::string upperLine = to_upper(line);      // Make line case-insensitive
 
             // If the server sends a message about joining the default channel
-            if (line.find("MSG FROM Server IS") == 0 && line.find("joined default") != std::string::npos) {
+            if (upperLine.find("MSG FROM SERVER IS") == 0 && upperLine.find("JOINED DEFAULT") != std::string::npos) {
                 std::cout << "Server: " << line << std::endl;
                 sendChannelJoinConfirmation();  // Send confirmation of joining the default channel
                 continue;
             }
 
             // If the message is invalid (not matching any known type)
-            if (line.rfind("AUTH", 0) != 0 && line.rfind("JOIN", 0) != 0 && 
-                line.rfind("REPLY", 0) != 0 && line.rfind("MSG", 0) != 0 &&
-                line.rfind("ERR", 0) != 0 && line.rfind("BYE", 0) != 0) {
+            if (upperLine.rfind("AUTH", 0) != 0 && upperLine.rfind("JOIN", 0) != 0 && 
+                upperLine.rfind("REPLY", 0) != 0 && upperLine.rfind("MSG", 0) != 0 &&
+                upperLine.rfind("ERR", 0) != 0 && upperLine.rfind("BYE", 0) != 0) {
                 processInvalidMessage(line);  // Handle invalid message
                 continue;
             }
 
             // Process ERROR messages
-            else if (line.rfind("ERR", 0) == 0) {
-                // Format: "ERR FROM DisplayName IS MessageContent"
+            else if (upperLine.rfind("ERR", 0) == 0) {
                 std::istringstream iss(line);
                 std::string tag, from, sender, is;
                 iss >> tag >> from >> sender >> is;
@@ -151,32 +157,46 @@ void TcpChatClient::receiveServerResponse() {
                 std::getline(iss, content);  // Extract message content
                 if (!content.empty() && content.front() == ' ') content.erase(0, 1);
 
-                std::cout << "ERROR FROM " << sender << ": " << content << std::endl; // Print the error
-                std::exit(1); // Exit the program
+                std::cout << "ERROR FROM " << sender << ": " << content << std::endl;
+                std::exit(1);
             }
 
-            // Process BYE messages (exit the program)
-            else if (line.rfind("BYE", 0) == 0) {
-                std::exit(0);  // Exit the program
+            // Process BYE messages
+            else if (upperLine.rfind("BYE", 0) == 0) {
+                std::exit(0);
             }
+
             // Process REPLY messages
-            else if (line.rfind("REPLY", 0) == 0) {
-                Message reply = Message::fromBuffer(line + "\r\n");
-                process_reply(reply);  // Process the REPLY message
-            }
-            // Process regular MSG messages
-            else if (line.rfind("MSG", 0) == 0) {
+            else if (upperLine.rfind("REPLY", 0) == 0) {
+    std::istringstream iss(line);
+    std::string tag, status, is;
+    iss >> tag >> status >> is;
+
+    std::string content;
+    std::getline(iss, content);
+    if (!content.empty() && content.front() == ' ') content.erase(0, 1);
+
+    std::string fullContent = to_upper(status) + " " + content;
+
+    Message reply(Message::Type::REPLY, fullContent);
+    process_reply(reply);
+}
+
+
+            // Process MSG messages
+            else if (upperLine.rfind("MSG", 0) == 0) {
                 std::istringstream iss(line);
                 std::string tag, from, sender, is;
                 iss >> tag >> from >> sender >> is;
                 std::string content;
-                std::getline(iss, content);  // Extract message content
+                std::getline(iss, content);
                 if (!content.empty() && content.front() == ' ') content.erase(0, 1);
-                std::cout << sender << ": " << content << "\n";  // Print the message
+                std::cout << sender << ": " << content << "\n";
             }
         }
     }
 }
+
 //  Function 'run' is the main loop of the TcpChatClient class that handles user input, message processing, and communication with the server.
 void TcpChatClient::run() {
     std::string line;
