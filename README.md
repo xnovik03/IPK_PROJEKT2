@@ -119,7 +119,7 @@ spuštění hlavní smyčky klienta voláním run().
 
 ## Testování
 
-1. Manuální testování pomocí `netcat` (nc)
+**1.** Manuální testování pomocí `netcat` (nc)
  Pro testování  klienta byl využit jednoduchý server, který byl vytvořen pomocí nástroje nc (Netcat). Tento server přijímal a odesílal zprávy dle specifikovaných protokolů a reagoval na příkazy od klienta.
 
 ### TCP
@@ -207,8 +207,10 @@ main.cpp:23   |   signalHandler | Total retransmissions: 1
 ![img_3.png](img_3.png)
 
 
-2. Použití testů: K ověření správnosti implementace byly využity automatizované testy. Testy jsou k dispozici na 
+**2.** Použití testů: K ověření správnosti implementace byly využity automatizované testy. Testy jsou k dispozici na 
 GitHubu: https://github.com/Vlad6422/VUT_IPK_CLIENT_TESTS.git (nejsem autor).  
+
+
 ![img_1.png](img_1.png)
 
 Testy byly prováděny postupně, tedy každý test byl spuštěn jednotlivě. Po spuštění každého testu byla komunikace sledována v aplikaci Wireshark, kde byl použit plugin ipk25Chat pro analýzu UDP a TCP paketů
@@ -217,7 +219,7 @@ Např. test: tcp_auth_nok_ok
 
 ![](test1.jpg)
 
-3. Testování se serverem ze zadání (DISCORD server)
+**3.** Testování se serverem ze zadání (DISCORD server)
 
 ### TCP
  **Autentizace (/auth)**  
@@ -258,7 +260,7 @@ Např. test: tcp_auth_nok_ok
 
 ![img.png](img.png)
 
-4. Testování  pomocí `tcpdump`
+**4.** Testování  pomocí `tcpdump`
 Během testování implementace klienta byly spouštěny předem připravené testy z Git repozitáře(https://github.com/Vlad6422/VUT_IPK_CLIENT_TESTS.git ). Současně byl pomocí nástroje tcpdump sledován síťový provoz.
 
 ### TCP
