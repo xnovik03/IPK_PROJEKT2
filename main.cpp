@@ -60,24 +60,24 @@ int main(int argc, char* argv[]) {
         }
     }
 
-  // Check if required arguments are missing for UDP
-if (transport == "udp" && (server.empty() || !portSet)) {
-    std::cerr << "ERROR: Missing required arguments (-t, -s and -p are all required for UDP).\n";
+// Check if required arguments are missing
+if (transport.empty() || server.empty()) {
+    std::cerr << "ERROR: Missing required arguments (-t and -s are required).\n";
     printHelp();
     return 1;
 }
 
-// If transport is TCP, allow the port to be optional, and use default if not provided
-if (transport == "tcp" && server.empty()) {
-    std::cerr << "ERROR: Missing required argument -s (server address for TCP).\n";
-    printHelp();
-    return 1;
-}
-
-// For TCP, if port isn't provided, use the default port
+// TCP: port optional, default to DEFAULT_PORT
 if (transport == "tcp" && !portSet) {
     std::cerr << "No port specified for TCP. Using default port: " << DEFAULT_PORT << std::endl;
     port = DEFAULT_PORT;
+}
+
+// UDP: port required
+if (transport == "udp" && !portSet) {
+    std::cerr << "ERROR: Missing required port (-p) for UDP.\n";
+    printHelp();
+    return 1;
 }
 
     // TCP client flow
