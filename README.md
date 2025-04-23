@@ -219,7 +219,7 @@ Např. test: tcp_auth_nok_ok
 
 3. Testování se serverem ze zadání (DISCORD server)
 
-###TCP
+### TCP
  **Autentizace (/auth)**  
    Byl zadán příkaz pro přihlášení uživatele:
    ```bash
@@ -258,6 +258,154 @@ Např. test: tcp_auth_nok_ok
 
 ![img.png](img.png)
 
+4. Testování  pomocí `tcpdump`
+Během testování implementace klienta byly spouštěny předem připravené testy z Git repozitáře(https://github.com/Vlad6422/VUT_IPK_CLIENT_TESTS.git ). Současně byl pomocí nástroje tcpdump sledován síťový provoz.
+
+### TCP
+
+Příklad testu `tcp_auth_nok` pomocí `tcpdump`
+ 
+Příkaz pro spuštění `tcpdump`:
+```bash
+sudo tcpdump -i lo tcp port 4567 -X -n
+```
+
+### Ukázka výstupu:
+```
+win 65495, options [mss 65495,sackOK,TS val 792914294 ecr 0,nop,wscale 7], length 0
+	0x0000:  4500 003c b534 4000 4006 8785 7f00 0001  E..<.4@.@.......
+	0x0010:  7f00 0001 e696 11d7 3d37 0361 0000 0000  ........=7.a....
+	0x0020:  a002 ffd7 fe30 0000 0204 ffd7 0402 080a  .....0..........
+	0x0030:  2f42 e976 0000 0000 0103 0307            /B.v........
+22:40:44.970823 IP 127.0.0.1.4567 > 127.0.0.1.59030: Flags [S.], seq 1118307861, ack 1027015522, win 65483, options [mss 65495,sackOK,TS val 792914294 ecr 792914294,nop,wscale 7], length 0
+	0x0000:  4500 003c 0000 4000 4006 3cba 7f00 0001  E..<..@.@.<.....
+	0x0010:  7f00 0001 11d7 e696 42a8 0615 3d37 0362  ........B...=7.b
+	0x0020:  a012 ffcb fe30 0000 0204 ffd7 0402 080a  .....0..........
+	0x0030:  2f42 e976 2f42 e976 0103 0307            /B.v/B.v....
+22:40:44.970844 IP 127.0.0.1.59030 > 127.0.0.1.4567: Flags [.], ack 1, win 512, options [nop,nop,TS val 792914294 ecr 792914294], length 0
+	0x0000:  4500 0034 b535 4000 4006 878c 7f00 0001  E..4.5@.@.......
+	0x0010:  7f00 0001 e696 11d7 3d37 0362 42a8 0616  ........=7.bB...
+	0x0020:  8010 0200 fe28 0000 0101 080a 2f42 e976  .....(....../B.v
+	0x0030:  2f42 e976                                /B.v
+22:40:45.147947 IP 127.0.0.1.59030 > 127.0.0.1.4567: Flags [P.], seq 1:22, ack 1, win 512, options [nop,nop,TS val 792914471 ecr 792914294], length 21
+	0x0000:  4500 0049 b536 4000 4006 8776 7f00 0001  E..I.6@.@..v....
+	0x0010:  7f00 0001 e696 11d7 3d37 0362 42a8 0616  ........=7.bB...
+	0x0020:  8018 0200 fe3d 0000 0101 080a 2f42 ea27  .....=....../B.'
+	0x0030:  2f42 e976 4155 5448 2061 2041 5320 6320  /B.vAUTH.a.AS.c.
+	0x0040:  5553 494e 4720 620d 0a                   USING.b..
+22:40:45.147968 IP 127.0.0.1.4567 > 127.0.0.1.59030: Flags [.], ack 22, win 512, options [nop,nop,TS val 792914471 ecr 792914471], length 0
+	0x0000:  4500 0034 1461 4000 4006 2861 7f00 0001  E..4.a@.@.(a....
+	0x0010:  7f00 0001 11d7 e696 42a8 0616 3d37 0377  ........B...=7.w
+	0x0020:  8010 0200 fe28 0000 0101 080a 2f42 ea27  .....(....../B.'
+	0x0030:  2f42 ea27                                /B.'
+22:40:45.361090 IP 127.0.0.1.4567 > 127.0.0.1.59030: Flags [P.], seq 1:24, ack 22, win 512, options [nop,nop,TS val 792914684 ecr 792914471], length 23
+	0x0000:  4500 004b 1462 4000 4006 2849 7f00 0001  E..K.b@.@.(I....
+	0x0010:  7f00 0001 11d7 e696 42a8 0616 3d37 0377  ........B...=7.w
+	0x0020:  8018 0200 fe3f 0000 0101 080a 2f42 eafc  .....?....../B..
+	0x0030:  2f42 ea27 5245 504c 5920 4e4f 4b20 4953  /B.'REPLY.NOK.IS
+	0x0040:  206e 6963 2063 616a 6b0d 0a              .nic.cajk..
+22:40:45.361110 IP 127.0.0.1.59030 > 127.0.0.1.4567: Flags [.], ack 24, win 512, options [nop,nop,TS val 792914684 ecr 792914684], length 0
+	0x0000:  4500 0034 b537 4000 4006 878a 7f00 0001  E..4.7@.@.......
+	0x0010:  7f00 0001 e696 11d7 3d37 0377 42a8 062d  ........=7.wB..-
+	0x0020:  8010 0200 fe28 0000 0101 080a 2f42 eafc  .....(....../B..
+	0x0030:  2f42 eafc                                /B..
+22:40:45.561715 IP 127.0.0.1.59030 > 127.0.0.1.4567: Flags [P.], seq 22:43, ack 24, win 512, options [nop,nop,TS val 792914885 ecr 792914684], length 21
+	0x0000:  4500 0049 b538 4000 4006 8774 7f00 0001  E..I.8@.@..t....
+	0x0010:  7f00 0001 e696 11d7 3d37 0377 42a8 062d  ........=7.wB..-
+	0x0020:  8018 0200 fe3d 0000 0101 080a 2f42 ebc5  .....=....../B..
+	0x0030:  2f42 eafc 4155 5448 2064 2041 5320 6620  /B..AUTH.d.AS.f.
+	0x0040:  5553 494e 4720 650d 0a                   USING.e..
+22:40:45.561766 IP 127.0.0.1.4567 > 127.0.0.1.59030: Flags [.], ack 43, win 512, options [nop,nop,TS val 792914885 ecr 792914885], length 0
+	0x0000:  4500 0034 1463 4000 4006 285f 7f00 0001  E..4.c@.@.(_....
+	0x0010:  7f00 0001 11d7 e696 42a8 062d 3d37 038c  ........B..-=7..
+	0x0020:  8010 0200 fe28 0000 0101 080a 2f42 ebc5  .....(....../B..
+	0x0030:  2f42 ebc5                                /B..
+22:40:45.761969 IP 127.0.0.1.4567 > 127.0.0.1.59030: Flags [P.], seq 24:50, ack 43, win 512, options [nop,nop,TS val 792915085 ecr 792914885], length 26
+	0x0000:  4500 004e 1464 4000 4006 2844 7f00 0001  E..N.d@.@.(D....
+	0x0010:  7f00 0001 11d7 e696 42a8 062d 3d37 038c  ........B..-=7..
+	0x0020:  8018 0200 fe42 0000 0101 080a 2f42 ec8d  .....B....../B..
+	0x0030:  2f42 ebc5 5245 504c 5920 4f4b 2049 5320  /B..REPLY.OK.IS.
+	0x0040:  7673 6563 686e 6f20 6361 6a6b 0d0a       vsechno.cajk..
+22:40:45.762016 IP 127.0.0.1.59030 > 127.0.0.1.4567: Flags [.], ack 50, win 512, options [nop,nop,TS val 792915085 ecr 792915085], length 0
+	0x0000:  4500 0034 b539 4000 4006 8788 7f00 0001  E..4.9@.@.......
+	0x0010:  7f00 0001 e696 11d7 3d37 038c 42a8 0647  ........=7..B..G
+	0x0020:  8010 0200 fe28 0000 0101 080a 2f42 ec8d  .....(....../B..
+	0x0030:  2f42 ec8d                                /B..
+22:40:45.963357 IP 127.0.0.1.59030 > 127.0.0.1.4567: Flags [F.], seq 43, ack 50, win 512, options [nop,nop,TS val 792915287 ecr 792915085], length 0
+	0x0000:  4500 0034 b53a 4000 4006 8787 7f00 0001  E..4.:@.@.......
+	0x0010:  7f00 0001 e696 11d7 3d37 038c 42a8 0647  ........=7..B..G
+	0x0020:  8011 0200 fe28 0000 0101 080a 2f42 ed57  .....(....../B.W
+	0x0030:  2f42 ec8d                                /B..
+22:40:45.963811 IP 127.0.0.1.4567 > 127.0.0.1.59030: Flags [F.], seq 50, ack 44, win 512, options [nop,nop,TS val 792915287 ecr 792915287], length 0
+	0x0000:  4500 0034 1465 4000 4006 285d 7f00 0001  E..4.e@.@.(]....
+	0x0010:  7f00 0001 11d7 e696 42a8 0647 3d37 038d  ........B..G=7..
+	0x0020:  8011 0200 fe28 0000 0101 080a 2f42 ed57  .....(....../B.W
+	0x0030:  2f42 ed57                                /B.W
+22:40:45.963863 IP 127.0.0.1.59030 > 127.0.0.1.4567: Flags [.], ack 51, win 512, options [nop,nop,TS val 792915287 ecr 792915287], length 0
+	0x0000:  4500 0034 b53b 4000 4006 8786 7f00 0001  E..4.;@.@.......
+	0x0010:  7f00 0001 e696 11d7 3d37 038d 42a8 0648  ........=7..B..H
+	0x0020:  8010 0200 fe28 0000 0101 080a 2f42 ed57  .....(....../B.W
+	0x0030:  2f42 ed57                                /B.W
+
+```
+ **Co test potvrzuje**
+- TCP handshake proběhl korektně (`SYN`, `SYN-ACK`, `ACK`).
+- Klient správně odeslal AUTH zprávu jako `PUSH` segment.
+- Server korektně odpověděl s `REPLY`.
+- Všechny segmenty mají správné pořadí a délku (`length`).
+
+### UDP
+
+Příklad testu `udp_join_nok` pomocí `tcpdump`
+
+Příkaz pro spuštění `tcpdump`:
+```bash
+sudo tcpdump -i lo udp port 4567 -X -n
+```
+
+### Ukázka výstupu:
+```
+listening on lo, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+22:51:30.302915 IP 127.0.0.1.56458 > 127.0.0.1.4567:  (invalid)
+	0x0000:  4500 0025 6412 4000 4011 d8b3 7f00 0001  E..%d.@.@.......
+	0x0010:  7f00 0001 dc8a 11d7 0011 fe24 0200 0061  ...........$...a
+	0x0020:  0063 0062 00                             .c.b.
+22:51:30.503175 IP 127.0.0.1.4567 > 127.0.0.1.56458: UDP, length 3
+	0x0000:  4500 001f 6442 4000 4011 d889 7f00 0001  E...dB@.@.......
+	0x0010:  7f00 0001 11d7 dc8a 000b fe1e 0000 00    ...............
+22:51:30.503233 IP 127.0.0.1.4567 > 127.0.0.1.56458: UDP, length 11
+	0x0000:  4500 0027 6443 4000 4011 d880 7f00 0001  E..'dC@.@.......
+	0x0010:  7f00 0001 11d7 dc8a 0013 fe26 0100 0001  ...........&....
+	0x0020:  0000 6a6f 6a6f 00                        ..jojo.
+22:51:30.503368 IP 127.0.0.1.56458 > 127.0.0.1.4567:  (invalid)
+	0x0000:  4500 001f 6444 4000 4011 d887 7f00 0001  E...dD@.@.......
+	0x0010:  7f00 0001 dc8a 11d7 000b fe1e 0000 00    ...............
+22:51:30.903973 IP 127.0.0.1.56458 > 127.0.0.1.4567: * wb-dop: (invalid)
+	0x0000:  4500 002c 645e 4000 4011 d860 7f00 0001  E..,d^@.@..`....
+	0x0010:  7f00 0001 dc8a 11d7 0018 fe2b 0300 0163  ...........+...c
+	0x0020:  6861 6e6e 656c 0075 7365 7200            hannel.user.
+22:51:31.104487 IP 127.0.0.1.4567 > 127.0.0.1.56458: UDP, length 3
+	0x0000:  4500 001f 648d 4000 4011 d83e 7f00 0001  E...d.@.@..>....
+	0x0010:  7f00 0001 11d7 dc8a 000b fe1e 0000 01    ...............
+22:51:31.104611 IP 127.0.0.1.4567 > 127.0.0.1.56458: UDP, length 11
+	0x0000:  4500 0027 648e 4000 4011 d835 7f00 0001  E..'d.@.@..5....
+	0x0010:  7f00 0001 11d7 dc8a 0013 fe26 0100 0100  ...........&....
+	0x0020:  0001 6e65 6e65 00                        ..nene.
+22:51:31.104746 IP 127.0.0.1.56458 > 127.0.0.1.4567:  (invalid)
+	0x0000:  4500 001f 648f 4000 4011 d83c 7f00 0001  E...d.@.@..<....
+	0x0010:  7f00 0001 dc8a 11d7 000b fe1e 0000 01    ...............
+
+
+```
+**Co test potvrzuje**
+
+- Klient odeslal správně formátovanou `AUTH` zprávu .
+- Server odpověděl zprávou `CONFIRM`, následovanou `REPLY`.
+- Klient odpověděl `CONFIRM` na obě zprávy serveru.
+- Všechny pakety měly správnou délku a strukturu.
+
+---
+
 
 
 ## Zdroje a použitá literatura
@@ -282,10 +430,16 @@ Např. test: tcp_auth_nok_ok
 - https://cs.wikipedia.org/wiki/User_Datagram_Protocol (byly využity pro teorie v dokumentaci  )
 
 
-  https://www.geeksforgeeks.org/udp-server-client-implementation-c/ (byly využity pro teorie v dokumentaci  )
+- https://www.geeksforgeeks.org/udp-server-client-implementation-c/ (byly využity pro teorie v dokumentaci  )
   
 
 - https://www.planttext.com/ (byly využity pro teorie v dokumentaci )
+
+
+- https://github.com/Vlad6422/VUT_IPK_CLIENT_TESTS/tree/main (pro testování )
+
+
+- wireshark 
 
 ### Použití ChatGPT při vývoji
 
