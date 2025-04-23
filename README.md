@@ -115,6 +115,13 @@ Třída `UdpReliableTransport` zajištuje spolehlivyj přenos zpráv v UDP, kter
 Soubor `main.cpp` tvoří vstupní bod celé aplikace. Provádí: zpracování parametrů příkazové řádky (transport, adresa, port),výběr odpovídajícího klienta podle protokolu (tcp nebo udp),zachytávání signálu SIGINT a zajištění odeslání BYE zprávy při ukončení,
 spuštění hlavní smyčky klienta voláním run().
 
+### Příklad použití:
+
+```bash
+make         # Přeloží projekt podle Makefile
+make clean   # Smaže vytvořené binárky a dočasné soubory
+```
+
 ---
 
 ## Testování
