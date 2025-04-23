@@ -14,12 +14,13 @@ struct SentMessageInfo {
     std::vector<uint8_t> data;
     uint16_t messageId;
     std::chrono::steady_clock::time_point timestamp;
+    int retryCount = 0; 
 };
 
 // Class to handle UDP chat client functionalities.
 class UdpChatClient : public ChatClient {
 public:
-    UdpChatClient(const std::string& server, int port);
+UdpChatClient(const std::string& server, int port, int timeoutMs, int retries);
     ~UdpChatClient();
 
     bool connectToServer();
@@ -58,7 +59,8 @@ private:
     std::thread retransmissionThread;
     std::unordered_set<uint16_t> receivedMsgIds;
     std::unordered_map<uint16_t, SentMessageInfo> sentMessages;
-
+    int timeoutMs;
+    int maxRetries;
     void backgroundReceiverLoop();
     // Helper methods
     bool bindSocket();

@@ -35,7 +35,8 @@ void printHelp() {
 
 int main(int argc, char* argv[]) {
     std::signal(SIGINT, signalHandler); // Set up signal handling for Ctrl+C
-
+    int timeoutMs = 250;     // Default: 250 ms
+    int retries = 3; 
     std::string transport;  // Protocol type: tcp or udp
     std::string server;     // Server address
     int port = DEFAULT_PORT;        // Port number
@@ -50,6 +51,8 @@ int main(int argc, char* argv[]) {
             port = std::stoi(argv[++i]);
             portSet = true;
         }
+           else if (arg == "-d" && i + 1 < argc) timeoutMs = std::stoi(argv[++i]);  // ✅ new
+    else if (arg == "-r" && i + 1 < argc) retries = std::stoi(argv[++i]); 
         else if (arg == "-h") {
             printHelp();
             return 0;
@@ -90,7 +93,7 @@ if (transport == "udp" && !portSet) {
 
     // UDP client flow
     else if (transport == "udp") {
-        UdpChatClient udpClient(server, port);
+    UdpChatClient udpClient(server, port, timeoutMs, retries);
         globalClient = &udpClient;
         if (!udpClient.connectToServer()) return 1;
         udpClient.run();

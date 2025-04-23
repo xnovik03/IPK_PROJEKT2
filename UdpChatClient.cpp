@@ -13,9 +13,14 @@
 #include <netdb.h>
 // Constructor for initializing the UDP client with the server address and port
 // It also initializes the sockfd to -1, nextMessageId to 0, and displayName to an empty string
-UdpChatClient::UdpChatClient(const std::string& server, int port)
-    : serverAddress(server), serverPort(port), sockfd(-1),
-      nextMessageId(0), displayName("") {
+UdpChatClient::UdpChatClient(const std::string& server, int port, int timeoutMs, int retries)
+    : serverAddress(server),
+      serverPort(port),
+      sockfd(-1),
+      nextMessageId(0),
+      displayName(""),
+      timeoutMs(timeoutMs),
+      maxRetries(retries) {
 }
 
 // Destructor to clean up resources by closing the socket if it is open
@@ -552,21 +557,31 @@ void UdpChatClient::backgroundReceiverLoop() {
 void UdpChatClient::checkRetransmissions() {
     auto now = std::chrono::steady_clock::now();
 
-    for (auto& pair : sentMessages) {
-        auto& msg = pair.second;
+    for (auto it = sentMessages.begin(); it != sentMessages.end(); ) {
+        auto& msg = it->second;
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - msg.timestamp);
 
         printf_debug("Checking message ID %d: elapsed = %ld ms", msg.messageId, elapsed.count());
 
-        if (elapsed.count() >= 2000) {
+        if (elapsed.count() >= timeoutMs) {
+            if (msg.retryCount >= maxRetries) {
+                std::cout << "ERROR: Confirmation not received for message ID " << msg.messageId << std::endl;
+                it = sentMessages.erase(it); 
+                continue;
+            }
+
+            // Retransmise
             printf_debug("[RETRANS] Resending message ID %d", msg.messageId);
             sendto(sockfd, msg.data.data(), msg.data.size(), 0,
                    (struct sockaddr*)&serverAddr, sizeof(serverAddr));
             msg.timestamp = now;
-                std::cout << "ERROR: Confirmation not received for message ID " << msg.messageId << std::endl;
+            msg.retryCount++;
         }
+
+        ++it;
     }
 }
+
 void UdpChatClient::sendRawUdpMessage(const UdpMessage& msg) {
     std::vector<uint8_t> buffer = packUdpMessage(msg);
     ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0, 
