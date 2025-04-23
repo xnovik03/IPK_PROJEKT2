@@ -118,19 +118,145 @@ spuštění hlavní smyčky klienta voláním run().
 ---
 
 ## Testování
- Pro testování klienta byl využit jednoduchý server, který byl vytvořen pomocí nástroje nc (Netcat). Tento server přijímal a odesílal zprávy dle specifikovaných protokolů a reagoval na příkazy od klienta.
+
+1. Manuální testování pomocí `netcat` (nc)
+ Pro testování  klienta byl využit jednoduchý server, který byl vytvořen pomocí nástroje nc (Netcat). Tento server přijímal a odesílal zprávy dle specifikovaných protokolů a reagoval na příkazy od klienta.
+
+### TCP
 Kroky testování:
 
-1. Testování s Netcat serverem: Pro testování komunikace mezi klientem a serverem byl na serveru spuštěn Netcat (nc), který poslouchal na portu 4567. Tento server reagoval na příkazy od klienta, jako jsou /auth, /join, /msg, a bye(Ctrl + C).
+  **Spuštění klienta**  
+   V jednom terminálu byl spuštěn klient následujícím příkazem:
+   ```bash
+   ./ipk25chat-client -t tcp -s 127.0.0.1
+   ```
+
+  **Spuštění testovacího TCP serveru (`nc`)**  
+   Ve druhém terminálu byl spuštěn server :
+   ```bash
+   nc -l 4567
+   ```
+
+  **Zadávání příkazů na straně klienta**  
+   Na straně klienta byly postupně zadány tyto příkazy:
+    - `/auth pp oo rr`
+    - `/rename petr`
+    - `/join pp`
+    - `Hello ` 
+    - `Ctrl+c` (BYE)
+
+**Pozorování výstupu na straně serveru (`nc`)**  
+   Všechny odeslané zprávy byly viditelné ve výstupu `netcat`, což umožňuje manuálně ověřit:
+    - správný formát zpráv,
+    - správné pořadí,
+    - správné zakončení řádkem \r\n,
+    - a přítomnost výstupních zpráv jako  `AUTH`, `JOIN`, `MSG`, `BYE`.
+
+![img_2.png](img_2.png)
+
+
+### UDP
+Kroky testování:
+
+  **Spuštění klienta**  
+   V jednom terminálu byl spuštěn UDP klient s nízkým timeoutem a jedním pokusem o retransmisi:
+   ```bash
+   ./ipk25chat-client -t udp -s 127.0.0.1 -p 3000 -d 100 -r 1
+   ```
+
+  **Spuštění testovacího UDP serveru (`nc`)**  
+   Ve druhém terminálu byl spuštěn UDP server:
+   ```bash
+   nc -u -l 3000
+   ```
+
+  **Zadání příkazu na straně klienta**  
+  Na straně klienta byly postupně zadány tyto příkazy:
+
+  - `/auth pp ee rr`
+  -  `Ctrl+c` (BYE)
+
+   Zpráva byla odeslána jako binární UDP paket, který `netcat` zobrazil v surové podobě.
+
+  **Simulace výpadku potvrzení (CONFIRM)**  
+   Protože `netcat` neodpovídá na zprávy, klient neobdržel potvrzení (CONFIRM) a aktivoval **retransmisi**.
+
+  **Výstup klienta**  
+   Na straně klienta se zobrazily ladicí zprávy potvrzující retransmise:
+   ```
+  UdpChatClient.cpp:596  | sendRawUdpMessage | Sent message with ID 0 (type 2, size 12)
+  UdpChatClient.cpp:190  | handleAuthCommand | UDP AUTH message sent.
+  UdpChatClient.cpp:565  | checkRetransmissions | Checking message ID 0: elapsed = 45 ms
+  UdpChatClient.cpp:565  | checkRetransmissions | Checking message ID 0: elapsed = 145 ms
+  UdpChatClient.cpp:575  | checkRetransmissions | [RETRANS] Resending message ID 0
+  UdpChatClient.cpp:565  | checkRetransmissions | Checking message ID 0: elapsed = 100 ms
+  ERROR: Confirmation not received for message ID 0
+
+   ```
+  **Zobrazení výsledku v `netcat`**  
+   Na straně `netcat` byly vidět dva identické příchozí pakety – originální zpráva a její retransmise.
+
+####  Výstupní statistiky
+
+Na konci běhu klienta se zobrazí souhrn:
+```
+main.cpp:23   |   signalHandler | Total retransmissions: 1
+```
+
+
+![img_3.png](img_3.png)
+
 
 2. Použití testů: K ověření správnosti implementace byly využity automatizované testy. Testy jsou k dispozici na 
 GitHubu: https://github.com/Vlad6422/VUT_IPK_CLIENT_TESTS.git (nejsem autor).  
+![img_1.png](img_1.png)
+
 Testy byly prováděny postupně, tedy každý test byl spuštěn jednotlivě. Po spuštění každého testu byla komunikace sledována v aplikaci Wireshark, kde byl použit plugin ipk25Chat pro analýzu UDP a TCP paketů
 
 Např. test: tcp_auth_nok_ok
 
 ![](test1.jpg)
 
+3. Testování se serverem ze zadání (DISCORD server)
+
+###TCP
+ **Autentizace (/auth)**  
+   Byl zadán příkaz pro přihlášení uživatele:
+   ```bash
+   /auth kiralox
+   ```
+   Server potvrdil úspěšné přihlášení zprávou `REPLY OK is authenticated`.
+
+  **Zaslání zprávy (MSG)**  
+   Následně klient odeslal běžnou zprávu do výchozího kanálu:
+   ```bash
+   popo
+   ```
+   Tato zpráva byla serverem přijata a správně zobrazena ostatním uživatelům.
+
+ **Připojení do jiného kanálu (/join)**  
+   Klient se přesunul do kanálu s názvem `ovocko`:
+   ```bash
+   /join ovocko
+   ```
+
+ **Zaslání zprávy v kanálu `ovocko`**  
+   V novém kanálu klient odeslal opět zprávu:
+   ```bash
+   popo
+   ```
+   I tato zpráva byla správně zobrazena a potvrzena serverem.
+
+ **Ukončení relace Ctr+c (bye)**  
+   Na závěr klient úspěšně ukončil spojení:
+   Server správně reagoval zprávou `BYE`.
+
+### Výsledky testu:
+
+- Všechny příkazy byly serverem správně interpretovány.
+- Příkazy `/auth`, `/join`, `MSG`, `BYE` byly ověřeny jako funkční .
+
+![img.png](img.png)
 
 
 
