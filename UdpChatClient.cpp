@@ -100,44 +100,50 @@ bool UdpChatClient::connectToServer() {
     return true;
 }
 
-// Main loop for handling user input and processing server responses
-// This is where the client waits for input, processes commands, and sends messages
+// Main loop for handling user input and processing server responses.
+// This is where the client waits for input, processes commands, sends messages,
+// and handles background threads for receiving and retransmitting.
 void UdpChatClient::run() {
     std::cerr << "UDP client started. Enter a command: " << std::endl;
 
-    // Start background receiver
+    // Start the thread that continuously receives messages from the server
     receiverThread = std::thread(&UdpChatClient::backgroundReceiverLoop, this);
 
+    // Start a thread that periodically checks and handles retransmissions
     retransmissionThread = std::thread([this]() {
         while (running) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));  
-            checkRetransmissions();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Wait before next check
+            checkRetransmissions();  // Check if any messages need to be resent
         }
     });
 
-    running = true;
+    running = true;  // Mark the client as running
 
     std::string input;
     while (true) {
+        // Read a line from standard input (e.g., command or message)
         if (!std::getline(std::cin, input)) {
             std::cerr << "Stdin closed. Sending BYE and exiting." << std::endl;
             sendByeMessage();
             break;
         }
 
-        if (input.empty()) continue;
+        if (input.empty()) continue;  // Ignore empty input
 
         if (input[0] == '/') {
             handleCommand(input);
         } else {
+            // Input is a regular message to be sent to the channel
             sendMessage(input);
         }
     }
 
+    // Cleanup after exit
     running = false;
-    if (receiverThread.joinable()) receiverThread.join();
-    if (retransmissionThread.joinable()) retransmissionThread.join();
+    if (receiverThread.joinable()) receiverThread.join();  // Wait for receiver thread to finish
+    if (retransmissionThread.joinable()) retransmissionThread.join();  // Wait for retransmission thread
 }
+
 
 // Handles different commands based on user input
 // It processes commands like /help, /auth, /join, /rename, etc.
@@ -519,18 +525,21 @@ void UdpChatClient::sendPingMessage() {
     }
 }
 
-// Process the PING message received from the server
+// Handles a PING message from the server and sends a CONFIRM response.
 void UdpChatClient::processPingMessage(const UdpMessage& pingMsg) {
     printf_debug("Received PING message from server.");
 
+    // Build a CONFIRM message referencing the received PING's message ID
     UdpMessage confirmMsg;
-    confirmMsg.type = UdpMessageType::CONFIRM; // Set message type to CONFIRM
-    confirmMsg.messageId = 0;  
+    confirmMsg.type = UdpMessageType::CONFIRM;
+    confirmMsg.messageId = 0;  // CONFIRM messages do not carry their own IDs
     confirmMsg.payload.resize(sizeof(uint16_t));
 
-    uint16_t netRefId = htons(pingMsg.messageId);  
+    // Insert the received message ID (in network byte order) into the payload
+    uint16_t netRefId = htons(pingMsg.messageId);
     std::memcpy(confirmMsg.payload.data(), &netRefId, sizeof(uint16_t));
 
+    // Pack and send the CONFIRM message to the server
     std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
     ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0,
                                (struct sockaddr*)&serverAddr, sizeof(serverAddr));
@@ -541,20 +550,26 @@ void UdpChatClient::processPingMessage(const UdpMessage& pingMsg) {
     }
 }
 
+// Handles a BYE message from the server and shuts down the client gracefully.
 void UdpChatClient::processByeMessage(const UdpMessage& byeMsg) {
     std::cerr << "Received BYE message from server. Terminating client." << std::endl;
 
+    // Build and send CONFIRM message in response to BYE
     UdpMessage confirmMsg = buildConfirmUdpMessage(byeMsg.messageId);
     std::vector<uint8_t> buffer = packUdpMessage(confirmMsg);
     sendto(sockfd, buffer.data(), buffer.size(), 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
 
-    std::exit(EXIT_SUCCESS);
+    std::exit(EXIT_SUCCESS);  // Exit the application cleanly
 }
+
+// Continuously receives and processes UDP messages in a background thread while running is true.
 void UdpChatClient::backgroundReceiverLoop() {
     while (running) {
-        receiveServerResponseUDP();
+        receiveServerResponseUDP();  // Listen for and handle incoming server messages
     }
 }
+
+// Checks all unconfirmed messages and retransmits them if the timeout has expired.
 void UdpChatClient::checkRetransmissions() {
     auto now = std::chrono::steady_clock::now();
 
@@ -567,11 +582,11 @@ void UdpChatClient::checkRetransmissions() {
         if (elapsed.count() >= timeoutMs) {
             if (msg.retryCount >= maxRetries) {
                 std::cout << "ERROR: Confirmation not received for message ID " << msg.messageId << std::endl;
-                it = sentMessages.erase(it); 
+                it = sentMessages.erase(it);  // Drop the message if max retries exceeded
                 continue;
             }
 
-            // Retransmise
+            // Retransmit the message
             printf_debug("[RETRANS] Resending message ID %d", msg.messageId);
             sendto(sockfd, msg.data.data(), msg.data.size(), 0,
                    (struct sockaddr*)&serverAddr, sizeof(serverAddr));
@@ -584,6 +599,7 @@ void UdpChatClient::checkRetransmissions() {
     }
 }
 
+// Sends a UDP message to the server and stores it for potential retransmission.
 void UdpChatClient::sendRawUdpMessage(const UdpMessage& msg) {
     std::vector<uint8_t> buffer = packUdpMessage(msg);
     ssize_t sentBytes = sendto(sockfd, buffer.data(), buffer.size(), 0, 
@@ -595,6 +611,7 @@ void UdpChatClient::sendRawUdpMessage(const UdpMessage& msg) {
 
     printf_debug("Sent message with ID %d (type %d, size %zu)", msg.messageId, static_cast<int>(msg.type), buffer.size());
 
+    // Store the message for tracking and retransmission
     sentMessages[msg.messageId] = {
         buffer,
         msg.messageId,

@@ -7,6 +7,7 @@
 #include "ChatClient.h"
 #include <csignal>
 #include <cstdlib>
+#include "debug.h"
 
 // Global pointer to ChatClient (common interface for TCP and UDP clients)
 ChatClient* globalClient = nullptr;
