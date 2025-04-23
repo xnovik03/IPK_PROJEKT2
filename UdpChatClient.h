@@ -9,14 +9,14 @@
 #include <thread>
 #include <atomic>
 #include <unordered_map>
-
+#include <cstdint>
 struct SentMessageInfo {
     std::vector<uint8_t> data;
     uint16_t messageId;
     std::chrono::steady_clock::time_point timestamp;
     int retryCount = 0; 
 };
-
+extern int totalRetransmissions;
 // Class to handle UDP chat client functionalities.
 class UdpChatClient : public ChatClient {
 public:

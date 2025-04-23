@@ -22,6 +22,7 @@ UdpChatClient::UdpChatClient(const std::string& server, int port, int timeoutMs,
       timeoutMs(timeoutMs),
       maxRetries(retries) {
 }
+int totalRetransmissions = 0;  
 
 // Destructor to clean up resources by closing the socket if it is open
 UdpChatClient::~UdpChatClient() {
@@ -575,6 +576,7 @@ void UdpChatClient::checkRetransmissions() {
             sendto(sockfd, msg.data.data(), msg.data.size(), 0,
                    (struct sockaddr*)&serverAddr, sizeof(serverAddr));
             msg.timestamp = now;
+            totalRetransmissions++;
             msg.retryCount++;
         }
 

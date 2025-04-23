@@ -19,6 +19,7 @@ void signalHandler(int signal) {
         std::cerr << "Sending BYE message...\n";
         globalClient->sendByeMessage();
     }
+printf_debug("Total retransmissions: %d", totalRetransmissions);
     std::exit(0);
 }
 
