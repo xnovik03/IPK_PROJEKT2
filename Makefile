@@ -1,7 +1,7 @@
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++17 -O2
 
-# Add the -DDEBUG_PRINT flag to enable debug prints
+# Add debug print macro definition
 CXXFLAGS += -DDEBUG_PRINT
 
 SRCS := $(wildcard *.cpp)
@@ -10,7 +10,7 @@ OBJS := $(SRCS:.cpp=.o)
 BIN = ipk25chat-client
 
 all: $(BIN)
-
+# Link object files into the final binary
 $(BIN): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
