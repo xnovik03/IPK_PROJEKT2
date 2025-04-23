@@ -1,9 +1,14 @@
+
+---
+
 # Changelog
 
 ### TCP
-- **Problém s chybami**: V TCP verzi klienta máme problém s odesíláním a zpracováním **ERR** a **ERROR** zpráv. Tyto zprávy nejsou neuplne správně zpracovány .
-  
+- Na základě provedených testů fungují správně všechny základní příkazy: `/auth`, `/rename`, `/join`, `msg` a `bye`.
+
 ### UDP
-- **Funkční příkazy**: Implementace příkazu `/auth` funguje správně a umožňuje autentifikaci uživatele. Dále je částečně funkční i příkaz `/bye`, který správně odesílá zprávu o ukončení sezení, ale zatím není plně implementován pro všechny scénáře.
-- **Chybné příkazy**: Ostatní příkazy, jako `/join` nebo `/rename`, zatím nepracují uplne správně a vykazují různé problémy.
+- Při připojení ke serveru (např. Discord) fungoval správně pouze příkaz `/auth`. Zpráva se nezobrazila a příkazy jako `/join` a další zprávy nefungovaly správně.
+- Výpisy nejsou plně sjednocené do formátu `print_debug()`. Většina debug informací je stále vypisována pomocí `std::cerr`.
+
+--- 
 
